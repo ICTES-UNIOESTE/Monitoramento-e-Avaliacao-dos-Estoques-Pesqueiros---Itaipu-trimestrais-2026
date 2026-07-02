@@ -1,432 +1,272 @@
-# Biopesca tri 1, 2025####
+# Biopesca - Preços trimestral 2026 ####
+# Adaptado para a nova planilha de 2026, aba "Preços".
+# Inclui padronização de nomes populares em Estoque antes dos cálculos.
+
 rm()
-setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2 2025")
+
+setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2026")
+
 library(readxl)
-library(vegan)
 library(dplyr)
-library(ggplot2)
 library(openxlsx)
-BioAnual23 <- data.frame(read_xlsx("Biopesca_2025_JUNHO-JULHO-AGOSTO.xlsx", sheet="2025"))
-Ord <- levels(factor(BioAnual23$Ordem))
-Fam <- levels(factor(BioAnual23$Familia))
-Spp <- levels(factor(BioAnual23$Genero))
-Comp <- levels(factor(interaction(BioAnual23$Ordem,
-                                  BioAnual23$Familia,
-                                  BioAnual23$Genero)))
-Comp # Lista de espécie
-BioAnual23$Mes <- format(BioAnual23$Data, "%b %Y") # Data em (mmm aaaa)
-BioAnual23$Mes <- factor(BioAnual23$Mes)
-BioAnual23$Seq <- seq(nrow(BioAnual23))
-
-##################################
-### VALORES
-Preco<-BioAnual23[BioAnual23$Preço.Inteiro..Particular.>0,]
-Preco<-Preco[-which(is.na(Preco$Preço.Inteiro..Particular.)),c("Zona","Espécie","Preço.Inteiro..Particular.")]
-Preco
-tapply(Preco$Preço.Inteiro..Particular.,interaction(Preco$Zona,Preco$Espécie), mean)
-tapply(Preco$Preço.Inteiro..Particular.,interaction(Preco$Zona,Preco$Espécie), sd)
-names(BioAnual23)
-
-# Define a vector of names to be replaced
-names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis","Astronotus crassipinnis","Auchenipterus osteomystax","Catathyridium jenynsii",
-                      "Cichla kelberi","Cichla piquiti","Geophagus sveni","Hemiodus orthonops","Hoplerythrinus unitaeniatus","Hoplias mbigua",
-                      "Hoplias misionera","Hoplias sp. 3","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani","Hypostomus ternetzi",
-                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Loricariichthys platymetopon",
-                      "Loricariichthys rostratus","Megalancistrus parananus","Megaleporinus macrocephalus","Megaleporinus obtusidens",
-                      "Megaleporinus piavussu","Metynnis lippincottianus","Oreochromis niloticus","Piaractus mesopotamicus","Pimelodella avanhandavae",
-                      "Pimelodus maculatus","Pimelodus mysteriosus","Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus",
-                      "Potamotrygon amandae","Potamotrygon falkneri","Prochilodus lineatus","Pseudoplatystoma corruscans","Pterodoras granulosus",
-                      "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus","Rhinelepis aspera","Satanoperca setepele","Schizodon altoparanae",
-                      "Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)","Serrasalmus marginatus",
-                      "Sorubim lima","Trachelyopterus galeatus","Traíra","Hemisorubim platyrhynchos")
-
-# Define corresponding replacement names
-replacement_names <- c("Mandi","Mandi","Apaiari","Mandi","Linguado","Tucunaré","Tucunaré","Cará","Piau","Jeju",
-                       "Traíra","Traíra","Traíra","Perna de Moça","Cascudo","Cascudo","Cascudo","Mandi","Piau","Piau","Cascudo",
-                       "Cascudo","Cascudo","Piavuçu","Piapara","Piapara","Palometa","Tilápia","Pacu","Mandi","Mandi","Mandi","Mandi","Barbado",
-                       "Corvina","Raia","Raia","Curimba","Pintado","Armado","Cascudo","Dourado Cachorro","Cascudo","Cará","Piau","Piau","Piau",
-                       "Piranha","Piranha","Piranha","Jurupensem","Cangati","Traíra","Jurupoca")
-
-
-# Substitute names in Genero column
-Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
-                        replacement_names[match(Preco$Espécie, names_to_replace)],
-                        Preco$Espécie)
-
-# Filter out lines where Genero is not in the list of replacement names
-Preco <- Preco[Preco$Espécie %in% replacement_names, ]
-
-# Overall summary data frame
-overall_summary <- aggregate(Preço.Inteiro..Particular. ~ Espécie, data = Preco, 
-                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-
-# Create a new column indicating Zona as "Geral" for overall summary data
-overall_summary$Zona <- "Geral"
-
-# Reorder columns
-#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
-
-overall_summary<-as.data.frame(overall_summary)
-
-colnames(overall_summary)<-c("Espécies", "Preço", "Zona")
 
-overall_summary$Preço_mean <- overall_summary$Preço[,1]
-overall_summary$Preço_sd <- overall_summary$Preço[,2]
-
-overall_summary <- overall_summary[, -2]
-
-write.xlsx(overall_summary, file = "Preço geral peixe inteiro particular.xlsx")
-
-# Zona-specific summary data frame
-zona_summary <- aggregate(Preço.Inteiro..Particular. ~ Espécie + Zona, data = Preco, 
-                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-# Order zona_summary by Genero
-zona_summary <- zona_summary %>% 
-  arrange(Espécie)
-
-# Define the complete set of Genero and Zona combinations
-complete_set <- expand.grid(Espécie = unique(zona_summary$Espécie), 
-                            Zona = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Merge zona_summary with the complete set to add missing combinations
-zona_summary_complete <- merge(zona_summary, complete_set, by = c("Espécie", "Zona"), all = TRUE)
-
-# Order the Zonas
-zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Order zona_summary_complete by Genero and Zona
-zona_summary_complete <- zona_summary_complete %>% 
-  arrange(Espécie, Zona)
-
-colnames(zona_summary_complete)<-c("Espécies","Zona", "Preço")
-
-zona_summary_complete$Preço_mean <- zona_summary_complete$Preço[,1]
-zona_summary_complete$Preço_sd <- zona_summary_complete$Preço[,2]
-
-zona_summary_complete <- zona_summary_complete[, -3]
-
-write.xlsx(zona_summary_complete, file = "Preço por zona peixe inteiro particular.xlsx")
-
-#####################
-### VALORES
-Preco<-BioAnual23[BioAnual23$Preço.Filé..Particular.>0,]
-Preco<-Preco[-which(is.na(Preco$Preço.Filé..Particular.)),c("Zona","Espécie","Preço.Filé..Particular.")]
-Preco
-tapply(Preco$Preço.Filé..Particular.,interaction(Preco$Zona,Preco$Espécie), mean)
-tapply(Preco$Preço.Filé..Particular.,interaction(Preco$Zona,Preco$Espécie), sd)
-names(BioAnual23)
-
-# Define a vector of names to be replaced
-names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis","Astronotus crassipinnis","Auchenipterus osteomystax","Catathyridium jenynsii",
-                      "Cichla kelberi","Cichla piquiti","Geophagus sveni","Hemiodus orthonops","Hoplerythrinus unitaeniatus","Hoplias mbigua",
-                      "Hoplias misionera","Hoplias sp. 3","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani","Hypostomus ternetzi",
-                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Loricariichthys platymetopon",
-                      "Loricariichthys rostratus","Megalancistrus parananus","Megaleporinus macrocephalus","Megaleporinus obtusidens",
-                      "Megaleporinus piavussu","Metynnis lippincottianus","Oreochromis niloticus","Piaractus mesopotamicus","Pimelodella avanhandavae",
-                      "Pimelodus maculatus","Pimelodus mysteriosus","Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus",
-                      "Potamotrygon amandae","Potamotrygon falkneri","Prochilodus lineatus","Pseudoplatystoma corruscans","Pterodoras granulosus",
-                      "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus","Rhinelepis aspera","Satanoperca setepele","Schizodon altoparanae",
-                      "Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)","Serrasalmus marginatus",
-                      "Sorubim lima","Trachelyopterus galeatus","Traíra","Hemisorubim platyrhynchos")
-
-# Define corresponding replacement names
-replacement_names <- c("Mandi","Mandi","Apaiari","Mandi","Linguado","Tucunaré","Tucunaré","Cará","Piau","Jeju",
-                       "Traíra","Traíra","Traíra","Perna de Moça","Cascudo","Cascudo","Cascudo","Mandi","Piau","Piau","Cascudo",
-                       "Cascudo","Cascudo","Piavuçu","Piapara","Piapara","Palometa","Tilápia","Pacu","Mandi","Mandi","Mandi","Mandi","Barbado",
-                       "Corvina","Raia","Raia","Curimba","Pintado","Armado","Cascudo","Dourado Cachorro","Cascudo","Cará","Piau","Piau","Piau",
-                       "Piranha","Piranha","Piranha","Jurupensem","Cangati","Traíra","Jurupoca")
-
-
-# Substitute names in Genero column
-Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
-                        replacement_names[match(Preco$Espécie, names_to_replace)],
-                        Preco$Espécie)
-
-# Filter out lines where Genero is not in the list of replacement names
-Preco <- Preco[Preco$Espécie %in% replacement_names, ]
-
-# Overall summary data frame
-overall_summary <- aggregate(Preço.Filé..Particular. ~ Espécie, data = Preco, 
-                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-
-# Create a new column indicating Zona as "Geral" for overall summary data
-overall_summary$Zona <- "Geral"
-
-# Reorder columns
-#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
-
-overall_summary<-as.data.frame(overall_summary)
-
-colnames(overall_summary)<-c("Espécies", "Preço", "Zona")
-
-overall_summary$Preço_mean <- overall_summary$Preço[,1]
-overall_summary$Preço_sd <- overall_summary$Preço[,2]
-
-overall_summary <- overall_summary[, -2]
-
-write.xlsx(overall_summary, file = "Preço geral peixe filé particular.xlsx")
-
-# Zona-specific summary data frame
-zona_summary <- aggregate(Preço.Filé..Particular. ~ Espécie + Zona, data = Preco, 
-                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-# Order zona_summary by Genero
-zona_summary <- zona_summary %>% 
-  arrange(Espécie)
-
-# Define the complete set of Genero and Zona combinations
-complete_set <- expand.grid(Espécie = unique(zona_summary$Espécie), 
-                            Zona = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Merge zona_summary with the complete set to add missing combinations
-zona_summary_complete <- merge(zona_summary, complete_set, by = c("Espécie", "Zona"), all = TRUE)
-
-# Order the Zonas
-zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Order zona_summary_complete by Genero and Zona
-zona_summary_complete <- zona_summary_complete %>% 
-  arrange(Espécie, Zona)
-
-colnames(zona_summary_complete)<-c("Espécies","Zona", "Preço")
-
-zona_summary_complete$Preço_mean <- zona_summary_complete$Preço[,1]
-zona_summary_complete$Preço_sd <- zona_summary_complete$Preço[,2]
-
-zona_summary_complete <- zona_summary_complete[, -3]
-
-write.xlsx(zona_summary_complete, file = "Preço por zona peixe filé particular.xlsx")
-
-#####################
-##############
-### VALORES
-Preco<-BioAnual23[BioAnual23$Preço.Inteiro..Peixeiro.>0,]
-Preco<-Preco[-which(is.na(Preco$Preço.Inteiro..Peixeiro.)),c("Zona","Espécie","Preço.Inteiro..Peixeiro.")]
-Preco
-tapply(Preco$Preço.Inteiro..Peixeiro.,interaction(Preco$Zona,Preco$Espécie), mean)
-tapply(Preco$Preço.Inteiro..Peixeiro.,interaction(Preco$Zona,Preco$Espécie), sd)
-names(BioAnual23)
-
-# Define a vector of names to be replaced
-names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis","Astronotus crassipinnis","Auchenipterus osteomystax","Catathyridium jenynsii",
-                      "Cichla kelberi","Cichla piquiti","Geophagus sveni","Hemiodus orthonops","Hoplerythrinus unitaeniatus","Hoplias mbigua",
-                      "Hoplias misionera","Hoplias sp. 3","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani","Hypostomus ternetzi",
-                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Loricariichthys platymetopon",
-                      "Loricariichthys rostratus","Megalancistrus parananus","Megaleporinus macrocephalus","Megaleporinus obtusidens",
-                      "Megaleporinus piavussu","Metynnis lippincottianus","Oreochromis niloticus","Piaractus mesopotamicus","Pimelodella avanhandavae",
-                      "Pimelodus maculatus","Pimelodus mysteriosus","Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus",
-                      "Potamotrygon amandae","Potamotrygon falkneri","Prochilodus lineatus","Pseudoplatystoma corruscans","Pterodoras granulosus",
-                      "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus","Rhinelepis aspera","Satanoperca setepele","Schizodon altoparanae",
-                      "Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)","Serrasalmus marginatus",
-                      "Sorubim lima","Trachelyopterus galeatus","Traíra","Hemisorubim platyrhynchos")
-
-# Define corresponding replacement names
-replacement_names <- c("Mandi","Mandi","Apaiari","Mandi","Linguado","Tucunaré","Tucunaré","Cará","Piau","Jeju",
-                       "Traíra","Traíra","Traíra","Perna de Moça","Cascudo","Cascudo","Cascudo","Mandi","Piau","Piau","Cascudo",
-                       "Cascudo","Cascudo","Piavuçu","Piapara","Piapara","Palometa","Tilápia","Pacu","Mandi","Mandi","Mandi","Mandi","Barbado",
-                       "Corvina","Raia","Raia","Curimba","Pintado","Armado","Cascudo","Dourado Cachorro","Cascudo","Cará","Piau","Piau","Piau",
-                       "Piranha","Piranha","Piranha","Jurupensem","Cangati","Traíra","Jurupoca")
-
-
-# Substitute names in Genero column
-Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
-                        replacement_names[match(Preco$Espécie, names_to_replace)],
-                        Preco$Espécie)
-
-# Filter out lines where Genero is not in the list of replacement names
-Preco <- Preco[Preco$Espécie %in% replacement_names, ]
-
-# Overall summary data frame
-overall_summary <- aggregate(Preço.Inteiro..Peixeiro. ~ Espécie, data = Preco, 
-                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-
-# Create a new column indicating Zona as "Geral" for overall summary data
-overall_summary$Zona <- "Geral"
-
-# Reorder columns
-#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
-
-overall_summary<-as.data.frame(overall_summary)
-
-colnames(overall_summary)<-c("Espécies", "Preço", "Zona")
-
-overall_summary$Preço_mean <- overall_summary$Preço[,1]
-overall_summary$Preço_sd <- overall_summary$Preço[,2]
-
-overall_summary <- overall_summary[, -2]
-
-write.xlsx(overall_summary, file = "Preço geral peixe inteiro peixeiro.xlsx")
-
-# Zona-specific summary data frame
-zona_summary <- aggregate(Preço.Inteiro..Peixeiro. ~ Espécie + Zona, data = Preco, 
-                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-# Order zona_summary by Genero
-zona_summary <- zona_summary %>% 
-  arrange(Espécie)
-
-# Define the complete set of Genero and Zona combinations
-complete_set <- expand.grid(Espécie = unique(zona_summary$Espécie), 
-                            Zona = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Merge zona_summary with the complete set to add missing combinations
-zona_summary_complete <- merge(zona_summary, complete_set, by = c("Espécie", "Zona"), all = TRUE)
-
-# Order the Zonas
-zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Order zona_summary_complete by Genero and Zona
-zona_summary_complete <- zona_summary_complete %>% 
-  arrange(Espécie, Zona)
-
-colnames(zona_summary_complete)<-c("Espécies","Zona", "Preço")
-
-zona_summary_complete$Preço_mean <- zona_summary_complete$Preço[,1]
-zona_summary_complete$Preço_sd <- zona_summary_complete$Preço[,2]
-
-zona_summary_complete <- zona_summary_complete[, -3]
-
-write.xlsx(zona_summary_complete, file = "Preço por zona peixe inteiro peixeiro.xlsx")
-
-#####################
-##############
-### VALORES
-Preco<-BioAnual23[BioAnual23$Preço.Filé..Peixeiro.>0,]
-Preco<-Preco[-which(is.na(Preco$Preço.Filé..Peixeiro.)),c("Zona","Espécie","Preço.Filé..Peixeiro.")]
-Preco
-tapply(Preco$Preço.Filé..Peixeiro.,interaction(Preco$Zona,Preco$Espécie), mean)
-tapply(Preco$Preço.Filé..Peixeiro.,interaction(Preco$Zona,Preco$Espécie), sd)
-names(BioAnual23)
-
-# Define a vector of names to be replaced
-names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis","Astronotus crassipinnis","Auchenipterus osteomystax","Catathyridium jenynsii",
-                      "Cichla kelberi","Cichla piquiti","Geophagus sveni","Hemiodus orthonops","Hoplerythrinus unitaeniatus","Hoplias mbigua",
-                      "Hoplias misionera","Hoplias sp. 3","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani","Hypostomus ternetzi",
-                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Loricariichthys platymetopon",
-                      "Loricariichthys rostratus","Megalancistrus parananus","Megaleporinus macrocephalus","Megaleporinus obtusidens",
-                      "Megaleporinus piavussu","Metynnis lippincottianus","Oreochromis niloticus","Piaractus mesopotamicus","Pimelodella avanhandavae",
-                      "Pimelodus maculatus","Pimelodus mysteriosus","Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus",
-                      "Potamotrygon amandae","Potamotrygon falkneri","Prochilodus lineatus","Pseudoplatystoma corruscans","Pterodoras granulosus",
-                      "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus","Rhinelepis aspera","Satanoperca setepele","Schizodon altoparanae",
-                      "Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)","Serrasalmus marginatus",
-                      "Sorubim lima","Trachelyopterus galeatus","Traíra","Hemisorubim platyrhynchos")
-
-# Define corresponding replacement names
-replacement_names <- c("Mandi","Mandi","Apaiari","Mandi","Linguado","Tucunaré","Tucunaré","Cará","Piau","Jeju",
-                       "Traíra","Traíra","Traíra","Perna de Moça","Cascudo","Cascudo","Cascudo","Mandi","Piau","Piau","Cascudo",
-                       "Cascudo","Cascudo","Piavuçu","Piapara","Piapara","Palometa","Tilápia","Pacu","Mandi","Mandi","Mandi","Mandi","Barbado",
-                       "Corvina","Raia","Raia","Curimba","Pintado","Armado","Cascudo","Dourado Cachorro","Cascudo","Cará","Piau","Piau","Piau",
-                       "Piranha","Piranha","Piranha","Jurupensem","Cangati","Traíra","Jurupoca")
-
-
-# Substitute names in Genero column
-Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
-                        replacement_names[match(Preco$Espécie, names_to_replace)],
-                        Preco$Espécie)
-
-# Filter out lines where Genero is not in the list of replacement names
-Preco <- Preco[Preco$Espécie %in% replacement_names, ]
-
-# Overall summary data frame
-overall_summary <- aggregate(Preço.Filé..Peixeiro. ~ Espécie, data = Preco, 
-                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-
-# Create a new column indicating Zona as "Geral" for overall summary data
-overall_summary$Zona <- "Geral"
-
-# Reorder columns
-#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
-
-overall_summary<-as.data.frame(overall_summary)
-
-colnames(overall_summary)<-c("Espécies", "Preço", "Zona")
-
-overall_summary$Preço_mean <- overall_summary$Preço[,1]
-overall_summary$Preço_sd <- overall_summary$Preço[,2]
-
-overall_summary <- overall_summary[, -2]
-
-write.xlsx(overall_summary, file = "Preço geral peixe filé peixeiro.xlsx")
-
-# Zona-specific summary data frame
-zona_summary <- aggregate(Preço.Filé..Peixeiro. ~ Espécie + Zona, data = Preco, 
-                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
-
-# Order zona_summary by Genero
-zona_summary <- zona_summary %>% 
-  arrange(Espécie)
-
-# Define the complete set of Genero and Zona combinations
-complete_set <- expand.grid(Espécie = unique(zona_summary$Espécie), 
-                            Zona = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Merge zona_summary with the complete set to add missing combinations
-zona_summary_complete <- merge(zona_summary, complete_set, by = c("Espécie", "Zona"), all = TRUE)
-
-# Order the Zonas
-zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
-
-# Order zona_summary_complete by Genero and Zona
-zona_summary_complete <- zona_summary_complete %>% 
-  arrange(Espécie, Zona)
-
-colnames(zona_summary_complete)<-c("Espécies","Zona", "Preço")
-
-zona_summary_complete$Preço_mean <- zona_summary_complete$Preço[,1]
-zona_summary_complete$Preço_sd <- zona_summary_complete$Preço[,2]
-
-zona_summary_complete <- zona_summary_complete[, -3]
-
-write.xlsx(zona_summary_complete, file = "Preço por zona peixe filé peixeiro.xlsx")
-
-######################################## RPD vs. rest
-# Convert the date column to Date format and extract year and month
-library(lubridate)
-library(dplyr)
-BioAnual23 <- BioAnual23 %>%
-  mutate(Data = as.Date(Data),
-         Year = year(Data),
-         Month = month(Data, label = TRUE, abbr = TRUE))
-
-# Summarize data: calculate the total count and count for Estágio RPD for each month
-data_summary <- BioAnual23 %>%
-  filter(Year %in% c(2023, 2024)) %>%
-  group_by(Year, Month, Estagio) %>%
-  summarise(Count = n(), .groups = "drop") %>%
-  group_by(Year, Month) %>%
-  mutate(Total = sum(Count),
-         Percent = (Count / Total) * 100) %>%
-  filter(Estagio == "RPD")  # Keep only rows for Estágio RPD
-
-# Plot for 2023
-plot_2023 <- ggplot(data_summary %>% filter(Year == 2023), aes(x = Month, y = Percent)) +
-  geom_bar(stat = "identity", fill = "steelblue") +
-  theme_minimal() +
-  labs(title = "Percentage of Estágio RPD per Month (2023)",
-       x = "Month", y = "Percentage (%) of RPD")
-
-plot_2024 <- ggplot(data_summary %>% filter(Year == 2024), aes(x = Month, y = Percent)) +
-  geom_bar(stat = "identity", fill = "darkorange") +
-  theme_minimal() +
-  labs(title = "Porcentagem de peixes em reprodução por mês (2024)",
-       x = "", y = "") +
-  theme(
-    axis.title = element_text(size = 16, face = "bold"),   # Increase axis title size
-    axis.text = element_text(size = 14),                  # Increase axis text size
-    plot.title = element_text(size = 18, face = "bold"),  # Increase title size
-    axis.ticks.length = unit(0.25, "cm"), 
-    panel.grid = element_blank()                          # Remove grid lines
-  ) +
-  scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 5), 
-                     labels = function(x) paste0(x, "%")) +  # Add % symbol to Y-axis labels
-  geom_vline(xintercept = 0.5, color = "black", size = 1) +  # Add Y-axis line
-  geom_hline(yintercept = 0, color = "black", size = 1)      # Add X-axis line
-
-# Print the plots
-plot_2023
-plot_2024
+################################################################################
+# Leitura da aba de preços ####
+
+Precos <- data.frame(
+  read_xlsx("Biopesca_2026_ TRIMESTRAL_-M-A-M.xlsx", sheet = "Preços"),
+  check.names = FALSE
+)
+
+names(Precos) <- trimws(names(Precos))
+
+################################################################################
+# Funções auxiliares ####
+
+limpa_chave <- function(x){
+  x <- as.character(x)
+  x <- trimws(x)
+  x <- iconv(x, from = "", to = "ASCII//TRANSLIT")
+  x <- tolower(x)
+  x <- gsub("[^a-z0-9]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  trimws(x)
+}
+
+pega_coluna <- function(dados, candidatos){
+  nomes <- names(dados)
+  chave_nomes <- limpa_chave(nomes)
+  chave_candidatos <- limpa_chave(candidatos)
+  
+  for(padrao in chave_candidatos){
+    ind <- which(chave_nomes == padrao)
+    if(length(ind) > 0) return(nomes[ind[1]])
+  }
+  
+  for(padrao in chave_candidatos){
+    ind <- grep(padrao, chave_nomes)
+    if(length(ind) > 0) return(nomes[ind[1]])
+  }
+  
+  stop(paste("Coluna não encontrada. Procurei por:", paste(candidatos, collapse = ", ")))
+}
+
+################################################################################
+# Padronização dos nomes populares dos estoques ####
+#
+# Esta etapa resolve diferenças de caixa, acento e pequenas variações, por exemplo:
+# "Luz baixa" e "Luz Baixa" -> "Luz Baixa"
+# "Perna de moça" e "Perna de Moça" -> "Perna de Moça"
+# "Bagre africano" e "Bagre Africano" -> "Bagre Africano"
+#
+# Atenção: se você quiser manter "Cascudo Rabeta" separado de "Cascudo",
+# altere a linha "cascudo rabeta" = "Cascudo" para "cascudo rabeta" = "Cascudo Rabeta".
+#
+# Atenção: se você quiser manter "Oscar" como nome comercial, altere
+# a linha "oscar" = "Apaiari" para "oscar" = "Oscar".
+
+dicionario_estoque <- c(
+  "apaiari" = "Apaiari",
+  "armado" = "Armado",
+  "bagre africano" = "Bagre Africano",
+  "bananinha" = "Bananinha",
+  "barbado" = "Barbado",
+  "bocudo" = "Bocudo",
+  "cangati" = "Cangati",
+  "cara" = "Cará",
+  "cascudo" = "Cascudo",
+  "cascudo rabeta" = "Cascudo",
+  "corvina" = "Corvina",
+  "curimba" = "Curimba",
+  "dourado cachorro" = "Dourado Cachorro",
+  "jau" = "Jaú",
+  "jeju" = "Jeju",
+  "joaninha" = "Joaninha",
+  "jurupensen" = "Jurupensem",
+  "jurupensem" = "Jurupensem",
+  "jurupoca" = "Jurupoca",
+  "linguado" = "Linguado",
+  "luz baixa" = "Luz Baixa",
+  "mandi" = "Mandi",
+  "oscar" = "Apaiari",
+  "pacu" = "Pacu",
+  "palometa" = "Palometa",
+  "perna de moca" = "Perna de Moça",
+  "piapara" = "Piapara",
+  "piau" = "Piau",
+  "piaucu" = "Piauçu",
+  "piavucu" = "Piauçu",
+  "pintado" = "Pintado",
+  "piracanjuba" = "Piracanjuba",
+  "piranha" = "Piranha",
+  "raia" = "Raia",
+  "saicanga" = "Saicanga",
+  "tilapia" = "Tilápia",
+  "traira" = "Traíra",
+  "tucunare" = "Tucunaré"
+)
+
+padroniza_estoque <- function(x){
+  original <- as.character(x)
+  original <- trimws(original)
+  chave <- limpa_chave(original)
+  saida <- original
+  ind <- chave %in% names(dicionario_estoque)
+  saida[ind] <- dicionario_estoque[chave[ind]]
+  saida
+}
+
+################################################################################
+# Padronização das colunas principais ####
+
+col_zona <- pega_coluna(Precos, c("Zona"))
+col_estoque <- pega_coluna(Precos, c("Estoque"))
+
+Precos$Zona <- Precos[[col_zona]]
+Precos$Estoque_original <- Precos[[col_estoque]]
+Precos$Estoque <- padroniza_estoque(Precos$Estoque_original)
+
+# Conferência da padronização dos nomes populares
+conferencia_nomes <- unique(data.frame(
+  Estoque_original = Precos$Estoque_original,
+  Estoque_padronizado = Precos$Estoque
+))
+
+conferencia_nomes <- conferencia_nomes[order(conferencia_nomes$Estoque_padronizado,
+                                             conferencia_nomes$Estoque_original), ]
+
+write.xlsx(conferencia_nomes,
+           file = "Conferencia padronizacao nomes estoque.xlsx",
+           rowNames = FALSE)
+
+################################################################################
+# Colunas de preço na nova aba ####
+
+col_inteiro_particular <- pega_coluna(Precos, c("Inteiro Particular", "Inteiro (Particular)"))
+col_file_particular <- pega_coluna(Precos, c("Filé Particular", "File Particular", "Filé (Particular)", "File (Particular)"))
+col_inteiro_peixeiro <- pega_coluna(Precos, c("Inteiro Peixeiro", "Inteiro (Peixeiro)"))
+col_file_peixeiro <- pega_coluna(Precos, c("Filé Peixeiro", "File Peixeiro", "Filé (Peixeiro)", "File (Peixeiro)"))
+
+################################################################################
+# Função para gerar tabelas de preço ####
+# Mantém a mesma lógica do código anterior:
+# 1) média e desvio-padrão geral por estoque;
+# 2) média e desvio-padrão por zona e estoque;
+# 3) completa as combinações ausentes entre estoque e zona.
+
+gera_tabelas_preco <- function(dados, coluna_preco, arquivo_geral, arquivo_zona){
+  
+  Preco <- dados
+  Preco$Preco_valor <- suppressWarnings(as.numeric(Preco[[coluna_preco]]))
+  
+  Preco <- Preco[Preco$Preco_valor > 0 &
+                   !is.na(Preco$Preco_valor) &
+                   !is.na(Preco$Estoque) &
+                   trimws(Preco$Estoque) != "", ]
+  
+  Preco <- Preco[, c("Zona", "Estoque", "Preco_valor")]
+  colnames(Preco) <- c("Zona", "Espécie", "Preço")
+  
+  Preco$Zona <- factor(Preco$Zona,
+                       levels = c("Fluvial", "Transição", "Lacustre", "Montante"))
+  
+  # Geral
+  overall_summary <- aggregate(Preço ~ Espécie,
+                               data = Preco,
+                               FUN = function(x) c(mean = mean(x, na.rm = TRUE),
+                                                   sd = sd(x, na.rm = TRUE)))
+  
+  overall_summary$Zona <- "Geral"
+  overall_summary <- as.data.frame(overall_summary)
+  colnames(overall_summary) <- c("Espécies", "Preço", "Zona")
+  
+  overall_summary$Preço_mean <- overall_summary$Preço[, 1]
+  overall_summary$Preço_sd <- overall_summary$Preço[, 2]
+  overall_summary <- overall_summary[, -2]
+  
+  overall_summary <- overall_summary %>%
+    arrange(Espécies)
+  
+  write.xlsx(overall_summary,
+             file = arquivo_geral,
+             rowNames = FALSE)
+  
+  # Por zona
+  zona_summary <- aggregate(Preço ~ Espécie + Zona,
+                            data = Preco,
+                            FUN = function(x) c(mean = mean(x, na.rm = TRUE),
+                                                sd = sd(x, na.rm = TRUE)))
+  
+  zona_summary <- zona_summary %>%
+    arrange(Espécie)
+  
+  complete_set <- expand.grid(Espécie = unique(zona_summary$Espécie),
+                              Zona = c("Fluvial", "Transição", "Lacustre", "Montante"))
+  
+  zona_summary_complete <- merge(zona_summary,
+                                 complete_set,
+                                 by = c("Espécie", "Zona"),
+                                 all = TRUE)
+  
+  zona_summary_complete$Zona <- factor(zona_summary_complete$Zona,
+                                       levels = c("Fluvial", "Transição", "Lacustre", "Montante"))
+  
+  zona_summary_complete <- zona_summary_complete %>%
+    arrange(Espécie, Zona)
+  
+  colnames(zona_summary_complete) <- c("Espécies", "Zona", "Preço")
+  
+  zona_summary_complete$Preço_mean <- zona_summary_complete$Preço[, 1]
+  zona_summary_complete$Preço_sd <- zona_summary_complete$Preço[, 2]
+  zona_summary_complete <- zona_summary_complete[, -3]
+  
+  write.xlsx(zona_summary_complete,
+             file = arquivo_zona,
+             rowNames = FALSE)
+  
+  return(list(geral = overall_summary,
+              zona = zona_summary_complete,
+              dados_filtrados = Preco))
+}
+
+################################################################################
+# Geração das tabelas principais de preço ####
+
+preco_inteiro_particular <- gera_tabelas_preco(
+  dados = Precos,
+  coluna_preco = col_inteiro_particular,
+  arquivo_geral = "Preço geral peixe inteiro particular.xlsx",
+  arquivo_zona = "Preço por zona peixe inteiro particular.xlsx"
+)
+
+preco_file_particular <- gera_tabelas_preco(
+  dados = Precos,
+  coluna_preco = col_file_particular,
+  arquivo_geral = "Preço geral peixe filé particular.xlsx",
+  arquivo_zona = "Preço por zona peixe filé particular.xlsx"
+)
+
+preco_inteiro_peixeiro <- gera_tabelas_preco(
+  dados = Precos,
+  coluna_preco = col_inteiro_peixeiro,
+  arquivo_geral = "Preço geral peixe inteiro peixeiro.xlsx",
+  arquivo_zona = "Preço por zona peixe inteiro peixeiro.xlsx"
+)
+
+preco_file_peixeiro <- gera_tabelas_preco(
+  dados = Precos,
+  coluna_preco = col_file_peixeiro,
+  arquivo_geral = "Preço geral peixe filé peixeiro.xlsx",
+  arquivo_zona = "Preço por zona peixe filé peixeiro.xlsx"
+)
+
+################################################################################
+# Conferências rápidas ####
+
+cat("\nNomes populares originais e padronizados foram salvos em:\n")
+cat("Conferencia padronizacao nomes estoque.xlsx\n\n")
+
+cat("\nEstoques padronizados encontrados:\n")
+print(sort(unique(Precos$Estoque)))
+
+cat("\nArquivos de preço gerados com sucesso.\n")
