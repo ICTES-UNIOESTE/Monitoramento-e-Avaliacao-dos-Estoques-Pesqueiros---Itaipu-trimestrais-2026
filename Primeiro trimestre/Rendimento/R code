@@ -1,0 +1,826 @@
+# socioeconomico 2023 ####
+rm()
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2025")
+library(readxl)
+library(vegan)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(openxlsx)
+library(ggrepel)
+library(lubridate)
+rendimento <- data.frame(read_xlsx("Rendimento_res.xlsx"))
+rendimento$DATA <-as.Date(rendimento$DATA, format = "%d/%m/%Y") # Data em (mmm aaaa)
+rendimento$Seq <- seq(nrow(rendimento))
+
+#
+nspp<- aggregate(Seq ~ ESPÉCIES+CPUE.Espécie..kg.pescador.dia., data=rendimento, length)
+
+# Remove rows with NA or infinite values
+data <- na.omit(nspp[is.finite(nspp$CPUE.Espécie..kg.pescador.dia.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Order mean_data by CPUE.Espécie..kg.pescador.dia. in descending order
+mean_data <- mean_data[order(-mean_data$CPUE.Espécie..kg.pescador.dia.), ]
+
+order_vector <- mean_data$ESPÉCIES
+
+sd_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+par(mfrow=c(4,1), mar=c(6,0,1,0), oma=c(3,6,1,0))
+
+# Calculate the upper and lower bounds for error bars (assuming they are available)
+#upper_bound <- mean_data$CPUE.Espécie..kg.pescador.dia. + sd_data$CPUE.Espécie..kg.pescador.dia.
+#lower_bound <- mean_data$CPUE.Espécie..kg.pescador.dia. - sd_data$CPUE.Espécie..kg.pescador.dia.
+
+#upper_bound <- ifelse(is.na(upper_bound), 0, upper_bound)
+#lower_bound <- ifelse(is.na(lower_bound), 0, lower_bound)
+
+# Join the two data frames by species to ensure correct alignment
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Handle NA values in the standard deviation and calculate bounds
+aligned_data <- aligned_data %>%
+  mutate(
+    sd_clean = ifelse(is.na(CPUE.Espécie..kg.pescador.dia._sd), 0, CPUE.Espécie..kg.pescador.dia._sd)
+  )
+
+# Create upper and lower bounds as separate vectors
+upper_bound <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean + aligned_data$sd_clean
+lower_bound <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean - aligned_data$sd_clean
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#ffff00",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, max(upper_bound)),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Geral", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+arrows(x0 = bar_mid, 
+       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+       x1 = bar_mid, 
+       y1 = upper_bound, 
+       angle = 90, 
+       code = 3, 
+       length = 0.05)
+
+#
+nspp<- aggregate(Seq ~ ESPÉCIES+CPUE.Espécie..kg.pescador.dia.+ZONA, data=rendimento, length)
+
+fluvial_df <- nspp[nspp$ZONA == "Fluvial", ]
+transicao_df <- nspp[nspp$ZONA == "Transição", ]
+lacustre_df <- nspp[nspp$ZONA == "Lacustre", ]
+
+#fluvial
+# Remove rows with NA or infinite values
+data <- na.omit(fluvial_df[is.finite(fluvial_df$CPUE.Espécie..kg.pescador.dia.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Order mean_data by CPUE.Espécie..kg.pescador.dia. in descending order
+#mean_data <- mean_data[order(-mean_data$CPUE.Espécie..kg.pescador.dia.), ]
+
+#sd_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Calculate the upper and lower bounds for error bars (assuming they are available)
+#upper_bound <- mean_data$CPUE.Espécie..kg.pescador.dia. + sd_data$CPUE.Espécie..kg.pescador.dia.
+#lower_bound <- mean_data$CPUE.Espécie..kg.pescador.dia. - sd_data$CPUE.Espécie..kg.pescador.dia.
+#upper_bound2<- mean_data$CPUE.Espécie..kg.pescador.dia. + sd_data$CPUE.Espécie..kg.pescador.dia.
+#upper_bound[is.na(upper_bound)] <- 0
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE.Espécie..kg.pescador.dia.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE.Espécie..kg.pescador.dia._sd), 0, CPUE.Espécie..kg.pescador.dia._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#045e9a",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, 10),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Fluvial", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+arrows(x0 = bar_mid, 
+       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+       x1 = bar_mid, 
+       y1 = upper_bound2, 
+       angle = 90, 
+       code = 3, 
+       length = 0.05)
+
+#transição
+# Remove rows with NA or infinite values
+data <- na.omit(transicao_df[is.finite(transicao_df$CPUE.Espécie..kg.pescador.dia.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE.Espécie..kg.pescador.dia.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE.Espécie..kg.pescador.dia._sd), 0, CPUE.Espécie..kg.pescador.dia._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#da2420",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, max(upper_bound)),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Transição", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+arrows(x0 = bar_mid, 
+       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+       x1 = bar_mid, 
+       y1 = upper_bound2, 
+       angle = 90, 
+       code = 3, 
+       length = 0.05)
+
+#lacustre
+# Remove rows with NA or infinite values
+data <- na.omit(lacustre_df[is.finite(lacustre_df$CPUE.Espécie..kg.pescador.dia.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE.Espécie..kg.pescador.dia.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE.Espécie..kg.pescador.dia._sd), 0, CPUE.Espécie..kg.pescador.dia._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#009241",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, max(upper_bound)),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Lacustre", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+arrows(x0 = bar_mid, 
+       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+       x1 = bar_mid, 
+       y1 = upper_bound2, 
+       angle = 90, 
+       code = 3, 
+       length = 0.05)
+
+mtext("CPUE: kg/pescador/dia", side=2, line=3, outer=T, cex=1.25)
+
+########### SAVE AS 1000 x 1000
+#
+#############
+########
+####
+
+########### SAVE AS 1000 x 1000
+#
+#############
+########
+####
+
+nspp<- aggregate(Seq ~ ESPÉCIES+CPUE..kg.m..rede., data=rendimento, length)
+
+# Remove rows with NA or infinite values
+data <- na.omit(nspp[is.finite(nspp$CPUE..kg.m..rede.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE..kg.m..rede.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE..kg.m..rede._sd), 0, CPUE..kg.m..rede._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE..kg.m..rede._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE..kg.m..rede._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+par(mfrow=c(4,1), mar=c(6,0,1,0), oma=c(3,6,1,0))
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#ffff00",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, 0.0025),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Geral", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+#arrows(x0 = bar_mid, 
+#       y0 = mean_data$CPUE..kg.m..rede., 
+#       x1 = bar_mid, 
+#       y1 = upper_bound, 
+#       angle = 90, 
+#       code = 3, 
+#       length = 0.05)
+
+#
+nspp<- aggregate(Seq ~ ESPÉCIES+CPUE..kg.m..rede.+ZONA, data=rendimento, length)
+
+fluvial_df <- nspp[nspp$ZONA == "Fluvial", ]
+transicao_df <- nspp[nspp$ZONA == "Transição", ]
+lacustre_df <- nspp[nspp$ZONA == "Lacustre", ]
+
+#fluvial
+# Remove rows with NA or infinite values
+data <- na.omit(fluvial_df[is.finite(fluvial_df$CPUE..kg.m..rede.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE..kg.m..rede.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE..kg.m..rede._sd), 0, CPUE..kg.m..rede._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE..kg.m..rede._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE..kg.m..rede._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+max(mean_data$CPUE..kg.m..rede.)
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#045e9a",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, 0.018),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+
+
+# Add text "Geral" to the plot
+mtext("Fluvial", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+## Add error bars
+#arrows(x0 = bar_mid, 
+#       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+#       x1 = bar_mid, 
+#       y1 = upper_bound2, 
+#       angle = 90, 
+#       code = 3, 
+#       length = 0.05)
+
+#transição
+# Remove rows with NA or infinite values
+data <- na.omit(transicao_df[is.finite(transicao_df$CPUE..kg.m..rede.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE..kg.m..rede.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE..kg.m..rede._sd), 0, CPUE..kg.m..rede._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE..kg.m..rede._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE..kg.m..rede._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#da2420",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, 0.0016),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Transição", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+#arrows(x0 = bar_mid, 
+#       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+#       x1 = bar_mid, 
+#       y1 = upper_bound2, 
+#       angle = 90, 
+#       code = 3, 
+#       length = 0.05)
+
+#lacustre
+# Remove rows with NA or infinite values
+data <- na.omit(lacustre_df[is.finite(lacustre_df$CPUE..kg.m..rede.), ])
+
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Calculate the mean and standard deviation for each ESPÉCIES category
+mean_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = mean)
+
+# Convert ESPÉCIES to a factor
+mean_data$ESPÉCIES <- factor(mean_data$ESPÉCIES, levels = mean_data$ESPÉCIES)
+
+# Ordena mean_data por CPUE em ordem decrescente
+mean_data <- mean_data[order(-mean_data$CPUE..kg.m..rede.), ]
+
+# Calcula o desvio padrão por espécie a partir dos dados brutos
+sd_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Faz o join para garantir alinhamento por espécie
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+
+# Substitui NAs por zero no desvio padrão
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE..kg.m..rede._sd), 0, CPUE..kg.m..rede._sd))
+
+# Calcula os limites superior e inferior como vetores separados
+upper_bound  <- aligned_data$CPUE..kg.m..rede._mean + aligned_data$sd_clean
+lower_bound  <- aligned_data$CPUE..kg.m..rede._mean - aligned_data$sd_clean
+upper_bound2 <- upper_bound  # Apenas duplicando conforme seu código original
+
+# Substitui valores NA em upper_bound por zero (embora já tratados acima, por segurança)
+upper_bound[is.na(upper_bound)] <- 0
+
+# Create the bar plot and capture the midpoints
+bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede., 
+                   names.arg = mean_data$ESPÉCIES,
+                   main = "",
+                   xlab = "",
+                   ylab = "CPUE (kg/pescador/dia)",
+                   col = "#009241",  # Bar color
+                   border = "black",  # Bar border color
+                   ylim = c(0, max(mean_data$CPUE..kg.m..rede.)),  # Set y-axis limits
+                   space = 0.2,  # Adjust space between bars
+                   las = 2,
+                   width = 0.3,
+                   xlim = c(0.5, 20))  # Rotate X-axis labels vertically
+
+# Add text "Geral" to the plot
+mtext("Lacustre", side = 3, line = 0, outer = FALSE, cex = 1.25)
+
+# Add error bars
+#arrows(x0 = bar_mid, 
+#       y0 = mean_data$CPUE.Espécie..kg.pescador.dia., 
+#       x1 = bar_mid, 
+#       y1 = upper_bound2, 
+#       angle = 90, 
+#       code = 3, 
+#       length = 0.05)
+
+mtext("CPUE: kg/m² de rede/dia", side=2, line=4, outer=T, cex=1.25)
+
+############
+## espécies por região
+especies<-cbind(rendimento$ESPÉCIES,rendimento$ZONA)
+especies<-as.data.frame(especies)
+
+library(tidyr)
+# Pivot the data wider
+wide_data <- pivot_wider(data = especies, 
+                         names_from = V2, 
+                         values_from = V2, 
+                         values_fn = length, 
+                         values_fill = 0)
+
+# Ensure each species appears only once
+wide_data <- unique(wide_data)
+
+wide_data<-as.data.frame(wide_data)
+
+colnames(wide_data)<-c("Espécies","Lacustre","Transição","Fluvial")
+
+# Change column order
+wide_data <- wide_data[, c("Espécies", "Fluvial", "Transição", "Lacustre")]
+
+# Remove rows where Espécies are equal to "TOTAL" or "<NA>"
+wide_data <- wide_data[!(wide_data$Espécies %in% c("TOTAL", NA)), ]
+
+# Calculate the sum for each column
+total_row <- colSums(wide_data[, -1], na.rm = TRUE)
+
+# Convert the total row to a data frame and name the first column
+total_row <- data.frame(Espécies = "TOTAL", t(total_row))
+
+# Bind the total row to the existing data frame
+wide_data <- rbind(wide_data, total_row)
+
+write.xlsx(wide_data, file = "espécies registradas no rendimento.xlsx")
+
+
+############
+## espécies por região
+especies<-cbind(rendimento$ESPÉCIES,rendimento$ZONA,rendimento$SEMANATOT)
+especies<-as.data.frame(especies)
+
+library(tidyr)
+# Pivot the data wider
+wide_data <- pivot_wider(data = especies, 
+                         names_from = V2, 
+                         values_from = V2, 
+                         values_fn = length, 
+                         values_fill = 0)
+
+# Ensure each species appears only once
+wide_data <- unique(wide_data)
+
+wide_data<-as.data.frame(wide_data)
+
+colnames(wide_data)<-c("Espécies","kg","Lacustre","Transição","Fluvial")
+
+# Change column order
+wide_data <- wide_data[, c("Espécies","kg","Lacustre","Transição","Fluvial")]
+
+# Remove rows where Espécies are equal to "TOTAL" or "<NA>"
+wide_data <- wide_data[!(wide_data$Espécies %in% c("TOTAL", NA)), ]
+
+wide_data$kg <- as.numeric(as.character(wide_data$kg))
+wide_data$Lacustre <- as.numeric(as.character(wide_data$Lacustre))
+wide_data$Transição <- as.numeric(as.character(wide_data$Transição))
+wide_data$Fluvial <- as.numeric(as.character(wide_data$Fluvial))
+
+wide_data <- mutate(wide_data, Lacustre2 = kg * Lacustre)
+wide_data <- mutate(wide_data, Transição2 = kg * Transição)
+wide_data <- mutate(wide_data, Fluvial2 = kg * Fluvial)
+
+wide_data<-wide_data[,-3]
+wide_data<-wide_data[,-3]
+wide_data<-wide_data[,-3]
+
+colnames(wide_data)<-c("Espécies","kg","Lacustre","Transição","Fluvial")
+
+# Change column order
+wide_data <- wide_data[, c("Espécies","kg","Lacustre","Transição","Fluvial")]
+
+# Calculate the sum for each column
+total_row <- colSums(wide_data[, -1], na.rm = TRUE)
+
+# Convert the total row to a data frame and name the first column
+total_row <- data.frame(Espécies = "TOTAL", t(total_row))
+
+# Bind the total row to the existing data frame
+wide_data <- rbind(wide_data, total_row)
+
+wide_data <- na.omit(wide_data)
+
+sum_by_species <- wide_data %>%
+  group_by(Espécies) %>%
+  summarize_at(vars(-group_cols()), sum)
+
+wide_data <- unique(sum_by_species)
+
+wide_data<-as.data.frame(wide_data)
+
+wide_data<-wide_data[,-2]
+
+write.xlsx(wide_data, file = "espécies registradas no rendimento (kg).xlsx")
+
+
+############## MONTANTE
+# socioeconomico Montante ####
+rm()
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2025")
+
+# Carrega dados
+rendimento <- data.frame(read_xlsx("Rendimento_mont.xlsx"))
+rendimento$DATA <- as.Date(rendimento$DATA, format = "%d/%m/%Y")
+rendimento$Seq <- seq(nrow(rendimento))
+
+# Agrupa por espécie e CPUE
+nspp <- aggregate(Seq ~ ESPÉCIES + CPUE.Espécie..kg.pescador.dia., data = rendimento, length)
+
+# Limpeza
+data <- na.omit(nspp[is.finite(nspp$CPUE.Espécie..kg.pescador.dia.), ])
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Média e DP por espécie
+mean_data <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = mean)
+sd_data   <- aggregate(CPUE.Espécie..kg.pescador.dia. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Join alinhado
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE.Espécie..kg.pescador.dia._sd), 0, CPUE.Espécie..kg.pescador.dia._sd))
+
+# Ordena por média
+aligned_data <- aligned_data[order(-aligned_data$CPUE.Espécie..kg.pescador.dia._mean), ]
+aligned_data$ESPÉCIES <- factor(aligned_data$ESPÉCIES, levels = aligned_data$ESPÉCIES)
+
+# Limites superior e inferior
+upper_bound <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean + aligned_data$sd_clean
+lower_bound <- aligned_data$CPUE.Espécie..kg.pescador.dia._mean - aligned_data$sd_clean
+upper_bound[is.na(upper_bound)] <- 0  # segurança
+
+# Ajuste gráfico
+par(mfrow = c(1, 1), mar = c(10, 6, 3, 1), oma = c(0, 0, 0, 0))
+
+bar_mid <- barplot(
+  height = aligned_data$CPUE.Espécie..kg.pescador.dia._mean,
+  names.arg = aligned_data$ESPÉCIES,
+  main = "",
+  xlab = "",
+  ylab = "",
+  col = "gray",
+  border = "black",
+  ylim = c(0, 50),
+  space = 0.2,
+  las = 2,
+  width = 0.3,
+  cex.names = 0.8  # diminui tamanho dos nomes
+  # xlim REMOVIDO para não cortar nomes
+)
+
+# Texto superior
+mtext("Montante", side = 3, line = 0, outer = FALSE, cex = 1.25, adj = 1)
+
+# Barras de erro
+arrows(x0 = bar_mid,
+       y0 = aligned_data$CPUE.Espécie..kg.pescador.dia._mean,
+       x1 = bar_mid,
+       y1 = upper_bound,
+       angle = 90,
+       code = 3,
+       length = 0.05)
+mtext("CPUE: kg/pescador/dia", side=2, line=2.5, outer=F, cex=1.25)
+
+#### save as 600x600
+
+
+# Agrupa por espécie e CPUE
+nspp <- aggregate(Seq ~ ESPÉCIES + CPUE..kg.m..rede., data = rendimento, length)
+
+# Limpeza
+data <- na.omit(nspp[is.finite(nspp$CPUE..kg.m..rede.), ])
+data <- subset(data, !grepl("TOTAL", ESPÉCIES))
+data <- data[data$ESPÉCIES != "Outros", ]
+
+# Média e DP por espécie
+mean_data <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = mean)
+sd_data   <- aggregate(CPUE..kg.m..rede. ~ ESPÉCIES, data = data, FUN = sd)
+
+# Join alinhado
+aligned_data <- left_join(mean_data, sd_data, by = "ESPÉCIES", suffix = c("_mean", "_sd"))
+aligned_data <- aligned_data %>%
+  mutate(sd_clean = ifelse(is.na(CPUE..kg.m..rede._sd), 0, CPUE..kg.m..rede._sd))
+
+# Ordena por média
+aligned_data <- aligned_data[order(-aligned_data$CPUE..kg.m..rede._mean), ]
+aligned_data$ESPÉCIES <- factor(aligned_data$ESPÉCIES, levels = aligned_data$ESPÉCIES)
+
+# Limites superior e inferior
+upper_bound <- aligned_data$CPUE..kg.m..rede._mean + aligned_data$sd_clean
+lower_bound <- aligned_data$CPUE..kg.m..rede._mean - aligned_data$sd_clean
+upper_bound[is.na(upper_bound)] <- 0  # segurança
+
+# Ajuste gráfico
+par(mfrow = c(1, 1), mar = c(10, 6, 3, 1), oma = c(0, 0, 0, 0))
+max(mean_data$CPUE..kg.m..rede.)
+
+bar_mid <- barplot(
+  height = aligned_data$CPUE..kg.m..rede._mean,
+  names.arg = aligned_data$ESPÉCIES,
+  main = "",
+  xlab = "",
+  ylab = "",
+  col = "gray",
+  border = "black",
+  ylim = c(0, 0.025),
+  space = 0.2,
+  las = 2,
+  width = 0.3,
+  cex.names = 0.8  # diminui tamanho dos nomes
+  # xlim REMOVIDO para não cortar nomes
+)
+
+# Texto superior
+mtext("Montante", side = 3, line = 0, outer = FALSE, cex = 1.25, adj = 1)
+
+# Barras de erro
+#arrows(x0 = bar_mid,
+#       y0 = aligned_data$CPUE..kg.m..rede._mean,
+#       x1 = bar_mid,
+#       y1 = upper_bound,
+#       angle = 90,
+#       code = 3,
+#       length = 0.05)
+mtext("CPUE: kg/m² de rede/dia", side=2, line=3.5, outer=F, cex=1.25)
+
+####################
+# Apenas espécies registradas no rendimento da Montante
+# Seleciona e filtra espécies
+especies_mont <- rendimento %>%
+  filter(!is.na(ESPÉCIES), ESPÉCIES != "TOTAL", ESPÉCIES != "Outros") %>%
+  count(ESPÉCIES, name = "Frequência")
+
+# Soma total de espécies registradas
+total_row <- data.frame(ESPÉCIES = "TOTAL", Frequência = sum(especies_mont$Frequência))
+
+# Adiciona total
+especies_mont <- bind_rows(especies_mont, total_row)
+
+# Salva em Excel
+write.xlsx(especies_mont, file = "especies_registradas_montante.xlsx")
+
+# Contagem ponderada pela coluna SEMANATOT (kg)
+especies_ponderado <- rendimento %>%
+  filter(!is.na(ESPÉCIES), ESPÉCIES != "TOTAL", ESPÉCIES != "Outros") %>%
+  group_by(ESPÉCIES) %>%
+  summarize(kg = sum(SEMANATOT, na.rm = TRUE), .groups = "drop")
+
+# Adiciona linha total
+total_row <- data.frame(ESPÉCIES = "TOTAL", kg = sum(especies_ponderado$kg))
+
+especies_ponderado <- bind_rows(especies_ponderado, total_row)
+
+# Salva em Excel
+write.xlsx(especies_ponderado, file = "especies_registradas_montante_kg.xlsx")
