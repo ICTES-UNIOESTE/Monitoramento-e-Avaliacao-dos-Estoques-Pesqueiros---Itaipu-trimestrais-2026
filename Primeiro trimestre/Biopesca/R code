@@ -1,0 +1,1396 @@
+# Biopesca tri 1, 2025####
+rm()
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2025")
+library(readxl)
+library(vegan)
+library(dplyr)
+library(ggplot2)
+library(openxlsx)
+BioJuAg23 <- data.frame(read_xlsx("Biop.xlsx", sheet="Primeiro trimestre 2025"))
+#Ord <- levels(factor(BioJuAg23$Ordem))
+#Fam <- levels(factor(BioJuAg23$Familia))
+Spp <- levels(factor(BioJuAg23$Espécie))
+#Comp <- levels(factor(interaction(BioJuAg23$Ordem,
+#                         BioJuAg23$Familia,
+#                        BioJuAg23$Genero)))
+#Comp
+BioJuAg23$Mes <- format(BioJuAg23$Data, "%b %Y") # Data em (mmm aaaa)
+BioJuAg23$Seq <- seq(nrow(BioJuAg23))
+
+###########################################################################################
+#PARTICULAR INTEIRO (PREÇO)
+Preco<-BioJuAg23[BioJuAg23$Preço.Inteiro..Particular.>0,]
+Preco<-Preco[-which(is.na(Preco$Preço.Inteiro..Particular.)),c("Zona","Espécie","Preço.Inteiro..Particular.")]
+Preco
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), mean)
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), sd)
+names(BioJuAg23)
+
+# Define a vector of names to be replaced
+names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis", "Auchenipterus osteomystax", "Cichla kelberi", "Cichla piquiti","Geophagus sveni",
+                      "Hemiodus orthonops","Hoplias mbigua","Hoplias sp. 2","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani",
+                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Leporinus striatus","Loricariichthys platymetopon",
+                      "Megaleporinus macrocephalus","Megaleporinus obtusidens","Megaleporinus piavussu","Pimelodus maculatus","Pimelodus mysteriosus",
+                      "Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus","Potamotrygon amandae","Potamotrygon falkneri",
+                      "Prochilodus lineatus","Pseudoplatystoma corruscans", "Pterodoras granulosus", "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus",
+                      "Satanoperca setepele","Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)",
+                      "Serrasalmus marginatus")
+
+# Define corresponding replacement names
+replacement_names <- c("Bocudo","Bocudo","Luz-baixa","Tucunaré","Tucunaré","Cará","Bananinha","Traíra","Traíra","Perna-de-moça","Cascudo","Cascudo",
+                       "Mandi","Piau","Piau","Piau","Cascudo","Piauçu","Piapara","Piapara","Mandi","Mandi","Mandi","Barbado","Corvina","Raia",
+                       "Raia","Curimba","Pintado","Armado","Cascudo","Dourado-cachorro","Cará","Piau","Piau","Piranha","Piranha","Piranha")
+
+#Ageneiosus inermis <- Bocudo
+#Ageneiosus ucayalensis <- Bocudo
+#Auchenipterus osteomystax <- Luz-baixa
+#Cichla kelberi <- Tucunaré
+#Cichla piquiti <- Tucunaré
+#Geophagus sveni <- Cará
+#Hemiodus orthonops<- Bananinha
+#Hoplias mbigua <- Traíra
+#Hoplias sp. 2 <- Traíra
+#Hypophthalmus oremaculatus <- Perna-de-moça
+#Hypostomus cochliodon <- Cascudo
+#Hypostomus regani <- Cascudo
+#Iheringichthys labrosus <- Mandi
+#Leporinus friderici <- Piau
+#Leporinus lacustris <- Piau
+#Leporinus striatus <- Piau
+#Loricariichthys platymetopon <- Cascudo
+#Megaleporinus macrocephalus <- Piauçu
+#Megaleporinus obtusidens <- Piapara
+#Megaleporinus piavussu <- Piapara
+#Pimelodus maculatus <- Mandi
+#Pimelodus mysteriosus <- Mandi
+#Pimelodus ornatus <- Mandi
+#Pinirampus pirinampu <- Barbado
+#Plagioscion squamosissimus <- Curvina
+#Potamotrygon amandae <- Raia
+#Potamotrygon falkneri <- Raia
+#Prochilodus lineatus <- Curimba
+#Pseudoplatystoma corruscans <- Pintado
+#Pterodoras granulosus <- Armado
+#Pterygoplichthys ambrosettii <- Cascudo
+#Rhaphiodon vulpinus <- Dourado-cachorro
+#Satanoperca setepele <- Cará
+#Schizodon borellii <- Piau
+#Schizodon nasutus <- Piau
+#Serrasalmus maculatus <- Piranha
+#Serrasalmus maculatus (preta) <- Piranha
+#Serrasalmus marginatus <- Piranha
+
+# Substitute names in Espécie column
+Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
+                        replacement_names[match(Preco$Espécie, names_to_replace)],
+                        Preco$Espécie)
+
+# Filter out lines where Espécie is not in the list of replacement names
+Preco <- Preco[Preco$Espécie %in% replacement_names, ]
+
+colnames(Preco)<-c("Zona","Pescado","Preço")
+
+# Overall summary data frame
+overall_summary <- aggregate(`Preço` ~ `Pescado`, data = Preco, 
+                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+
+# Create a new column indicating Zona as "Geral" for overall summary data
+overall_summary$Zona <- "Geral"
+
+# Reorder columns
+#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
+
+overall_summary<-as.data.frame(overall_summary)
+
+colnames(overall_summary)<-c("Pescado", "Preço", "Zona")
+
+
+# Zona-specific summary data frame
+zona_summary <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+mean(zona_summary [, 3], na.rm = TRUE)
+mean_preco_by_zone <- aggregate(zona_summary[,3] ~ Zona, data=zona_summary, FUN=mean, na.rm=TRUE)
+
+# Order zona_summary by Pescado
+zona_summary <- zona_summary %>% 
+  arrange(Pescado)
+
+# Define the complete set of Genero and Zona combinations
+complete_set <- expand.grid(Pescado = unique(zona_summary$Pescado), 
+                            Zona = c("Fluvial", "Transição", "Lacustre","Montante"))
+
+# Merge zona_summary with the complete set to add missing combinations
+zona_summary_complete <- merge(zona_summary, complete_set, by = c("Pescado", "Zona"), all = TRUE)
+
+# Order the Zonas
+zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
+
+# Order zona_summary_complete by Genero and Zona
+zona_summary_complete <- zona_summary_complete %>% 
+  arrange(Pescado, Zona)
+
+colnames(zona_summary_complete)<-c("Pescado","Zona", "Preço")
+
+# Combinando os dois dataframes
+combined_data <- bind_rows(zona_summary_complete, overall_summary)
+
+# Ajustando níveis dos fatores
+combined_data$Zona <- factor(combined_data$Zona, levels = c("Geral", "Fluvial", "Transição", "Lacustre","Montante"))
+
+#line_color<-c("#000000","#045e9a", "#da2420", "#009241")
+
+zona_summary_res<-zona_summary_complete[zona_summary_complete$Zona != "Montante", ]
+zona_summary_montante<-zona_summary_complete[zona_summary_complete$Zona == "Montante", ]
+
+# Criar o gráfico com barras de erro
+ggplot(zona_summary_res, aes(x = Pescado, y = zona_summary_res[,3][,1], fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_res[,3][,1],
+                    ymax = zona_summary_res[,3][,1] + zona_summary_res[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#045e9a", "#da2420", "#009241")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos inteiros para particular",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+zona_summary_montante <- zona_summary_montante %>%
+  mutate(
+    Preço.mean = Preço[, 1],
+    Preço.sd   = Preço[, 2]
+  )
+
+zona_summary_montante_clean <- zona_summary_montante %>%
+  filter(!is.na(Preço.mean))
+
+ggplot(zona_summary_montante_clean, aes(x = Pescado, y = Preço.mean, fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_montante_clean[,3][,1],
+                    ymax = zona_summary_montante_clean[,3][,1] + zona_summary_montante_clean[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("grey")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos inteiros para particular",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+########################################################################
+#Peixeiro INTEIRO (PREÇO)
+Preco<-BioJuAg23[BioJuAg23$Preço.Inteiro..Peixeiro.>0,]
+Preco<-Preco[-which(is.na(Preco$Preço.Inteiro..Peixeiro.)),c("Zona","Espécie","Preço.Inteiro..Peixeiro.")]
+Preco
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), mean)
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), sd)
+names(BioJuAg23)
+
+# Define a vector of names to be replaced
+names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis", "Auchenipterus osteomystax", "Cichla kelberi", "Cichla piquiti","Geophagus sveni",
+                      "Hemiodus orthonops","Hoplias mbigua","Hoplias sp. 2","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani",
+                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Leporinus striatus","Loricariichthys platymetopon",
+                      "Megaleporinus macrocephalus","Megaleporinus obtusidens","Megaleporinus piavussu","Pimelodus maculatus","Pimelodus mysteriosus",
+                      "Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus","Potamotrygon amandae","Potamotrygon falkneri",
+                      "Prochilodus lineatus","Pseudoplatystoma corruscans", "Pterodoras granulosus", "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus",
+                      "Satanoperca setepele","Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)",
+                      "Serrasalmus marginatus")
+
+# Define corresponding replacement names
+replacement_names <- c("Bocudo","Bocudo","Luz-baixa","Tucunaré","Tucunaré","Cará","Bananinha","Traíra","Traíra","Perna-de-moça","Cascudo","Cascudo",
+                       "Mandi","Piau","Piau","Piau","Cascudo","Piauçu","Piapara","Piapara","Mandi","Mandi","Mandi","Barbado","Corvina","Raia",
+                       "Raia","Curimba","Pintado","Armado","Cascudo","Dourado-cachorro","Cará","Piau","Piau","Piranha","Piranha","Piranha")
+
+#Ageneiosus inermis <- Bocudo
+#Ageneiosus ucayalensis <- Bocudo
+#Auchenipterus osteomystax <- Luz-baixa
+#Cichla kelberi <- Tucunaré
+#Cichla piquiti <- Tucunaré
+#Geophagus sveni <- Cará
+#Hemiodus orthonops<- Bananinha
+#Hoplias mbigua <- Traíra
+#Hoplias sp. 2 <- Traíra
+#Hypophthalmus oremaculatus <- Perna-de-moça
+#Hypostomus cochliodon <- Cascudo
+#Hypostomus regani <- Cascudo
+#Iheringichthys labrosus <- Mandi
+#Leporinus friderici <- Piau
+#Leporinus lacustris <- Piau
+#Leporinus striatus <- Piau
+#Loricariichthys platymetopon <- Cascudo
+#Megaleporinus macrocephalus <- Piauçu
+#Megaleporinus obtusidens <- Piapara
+#Megaleporinus piavussu <- Piapara
+#Pimelodus maculatus <- Mandi
+#Pimelodus mysteriosus <- Mandi
+#Pimelodus ornatus <- Mandi
+#Pinirampus pirinampu <- Barbado
+#Plagioscion squamosissimus <- Curvina
+#Potamotrygon amandae <- Raia
+#Potamotrygon falkneri <- Raia
+#Prochilodus lineatus <- Curimba
+#Pseudoplatystoma corruscans <- Pintado
+#Pterodoras granulosus <- Armado
+#Pterygoplichthys ambrosettii <- Cascudo
+#Rhaphiodon vulpinus <- Dourado-cachorro
+#Satanoperca setepele <- Cará
+#Schizodon borellii <- Piau
+#Schizodon nasutus <- Piau
+#Serrasalmus maculatus <- Piranha
+#Serrasalmus maculatus (preta) <- Piranha
+#Serrasalmus marginatus <- Piranha
+
+# Substitute names in Espécie column
+Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
+                        replacement_names[match(Preco$Espécie, names_to_replace)],
+                        Preco$Espécie)
+
+# Filter out lines where Espécie is not in the list of replacement names
+Preco <- Preco[Preco$Espécie %in% replacement_names, ]
+
+colnames(Preco)<-c("Zona","Pescado","Preço")
+
+# Overall summary data frame
+overall_summary <- aggregate(`Preço` ~ `Pescado`, data = Preco, 
+                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+
+# Create a new column indicating Zona as "Geral" for overall summary data
+overall_summary$Zona <- "Geral"
+
+# Reorder columns
+#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
+
+overall_summary<-as.data.frame(overall_summary)
+
+colnames(overall_summary)<-c("Pescado", "Preço", "Zona")
+
+
+# Zona-specific summary data frame
+zona_summary <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+zona_summary1 <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                           FUN = function(x) c(mean = mean(x)))
+
+mean(zona_summary1 [, 3], na.rm = TRUE)
+mean_preco_by_zone <- aggregate(zona_summary1[,3] ~ Zona, data=zona_summary, FUN=mean, na.rm=TRUE)
+
+
+# Order zona_summary by Pescado
+zona_summary <- zona_summary %>% 
+  arrange(Pescado)
+
+# Define the complete set of Genero and Zona combinations
+complete_set <- expand.grid(Pescado = unique(zona_summary$Pescado), 
+                            Zona = c("Fluvial", "Transição", "Lacustre", "Montante"))
+
+# Merge zona_summary with the complete set to add missing combinations
+zona_summary_complete <- merge(zona_summary, complete_set, by = c("Pescado", "Zona"), all = TRUE)
+
+# Order the Zonas
+zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre","Montante"))
+
+# Order zona_summary_complete by Genero and Zona
+zona_summary_complete <- zona_summary_complete %>% 
+  arrange(Pescado, Zona)
+
+colnames(zona_summary_complete)<-c("Pescado","Zona", "Preço")
+
+# Combinando os dois dataframes
+combined_data <- bind_rows(zona_summary_complete, overall_summary)
+
+# Ajustando níveis dos fatores
+combined_data$Zona <- factor(combined_data$Zona, levels = c("Geral", "Fluvial", "Transição", "Lacustre","Montante"))
+
+#line_color<-c("#000000","#045e9a", "#da2420", "#009241")
+
+zona_summary_res<-zona_summary_complete[zona_summary_complete$Zona != "Montante", ]
+zona_summary_montante<-zona_summary_complete[zona_summary_complete$Zona == "Montante", ]
+
+# Criar o gráfico com barras de erro
+ggplot(zona_summary_res, aes(x = Pescado, y = zona_summary_res[,3][,1], fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_res[,3][,1],
+                    ymax = zona_summary_res[,3][,1] + zona_summary_res[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#045e9a", "#da2420", "#009241")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos inteiros para peixeiros",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+zona_summary_montante <- zona_summary_montante %>%
+  mutate(
+    Preço.mean = Preço[, 1],
+    Preço.sd   = Preço[, 2]
+  )
+
+zona_summary_montante_clean <- zona_summary_montante %>%
+  filter(!is.na(Preço.mean))
+
+ggplot(zona_summary_montante_clean, aes(x = Pescado, y = Preço.mean, fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_montante_clean[,3][,1],
+                    ymax = zona_summary_montante_clean[,3][,1] + zona_summary_montante_clean[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#ffff00")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos inteiros para peixeiros",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+########################################################################
+#PARTICULAR FILÉ(PREÇO)
+Preco<-BioJuAg23[BioJuAg23$Preço.Filé..Particular.>0,]
+Preco<-Preco[-which(is.na(Preco$Preço.Filé..Particular.)),c("Zona","Espécie","Preço.Filé..Particular.")]
+Preco
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), mean)
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), sd)
+names(BioJuAg23)
+
+# Define a vector of names to be replaced
+names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis", "Auchenipterus osteomystax", "Cichla kelberi", "Cichla piquiti","Geophagus sveni",
+                      "Hemiodus orthonops","Hoplias mbigua","Hoplias sp. 2","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani",
+                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Leporinus striatus","Loricariichthys platymetopon",
+                      "Megaleporinus macrocephalus","Megaleporinus obtusidens","Megaleporinus piavussu","Pimelodus maculatus","Pimelodus mysteriosus",
+                      "Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus","Potamotrygon amandae","Potamotrygon falkneri",
+                      "Prochilodus lineatus","Pseudoplatystoma corruscans", "Pterodoras granulosus", "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus",
+                      "Satanoperca setepele","Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)",
+                      "Serrasalmus marginatus")
+
+# Define corresponding replacement names
+replacement_names <- c("Bocudo","Bocudo","Luz-baixa","Tucunaré","Tucunaré","Cará","Bananinha","Traíra","Traíra","Perna-de-moça","Cascudo","Cascudo",
+                       "Mandi","Piau","Piau","Piau","Cascudo","Piauçu","Piapara","Piapara","Mandi","Mandi","Mandi","Barbado","Corvina","Raia",
+                       "Raia","Curimba","Pintado","Armado","Cascudo","Dourado-cachorro","Cará","Piau","Piau","Piranha","Piranha","Piranha")
+
+#Ageneiosus inermis <- Bocudo
+#Ageneiosus ucayalensis <- Bocudo
+#Auchenipterus osteomystax <- Luz-baixa
+#Cichla kelberi <- Tucunaré
+#Cichla piquiti <- Tucunaré
+#Geophagus sveni <- Cará
+#Hemiodus orthonops<- Bananinha
+#Hoplias mbigua <- Traíra
+#Hoplias sp. 2 <- Traíra
+#Hypophthalmus oremaculatus <- Perna-de-moça
+#Hypostomus cochliodon <- Cascudo
+#Hypostomus regani <- Cascudo
+#Iheringichthys labrosus <- Mandi
+#Leporinus friderici <- Piau
+#Leporinus lacustris <- Piau
+#Leporinus striatus <- Piau
+#Loricariichthys platymetopon <- Cascudo
+#Megaleporinus macrocephalus <- Piauçu
+#Megaleporinus obtusidens <- Piapara
+#Megaleporinus piavussu <- Piapara
+#Pimelodus maculatus <- Mandi
+#Pimelodus mysteriosus <- Mandi
+#Pimelodus ornatus <- Mandi
+#Pinirampus pirinampu <- Barbado
+#Plagioscion squamosissimus <- Curvina
+#Potamotrygon amandae <- Raia
+#Potamotrygon falkneri <- Raia
+#Prochilodus lineatus <- Curimba
+#Pseudoplatystoma corruscans <- Pintado
+#Pterodoras granulosus <- Armado
+#Pterygoplichthys ambrosettii <- Cascudo
+#Rhaphiodon vulpinus <- Dourado-cachorro
+#Satanoperca setepele <- Cará
+#Schizodon borellii <- Piau
+#Schizodon nasutus <- Piau
+#Serrasalmus maculatus <- Piranha
+#Serrasalmus maculatus (preta) <- Piranha
+#Serrasalmus marginatus <- Piranha
+
+# Substitute names in Espécie column
+Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
+                        replacement_names[match(Preco$Espécie, names_to_replace)],
+                        Preco$Espécie)
+
+# Filter out lines where Espécie is not in the list of replacement names
+Preco <- Preco[Preco$Espécie %in% replacement_names, ]
+
+colnames(Preco)<-c("Zona","Pescado","Preço")
+
+# Overall summary data frame
+overall_summary <- aggregate(`Preço` ~ `Pescado`, data = Preco, 
+                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+
+# Create a new column indicating Zona as "Geral" for overall summary data
+overall_summary$Zona <- "Geral"
+
+# Reorder columns
+#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
+
+overall_summary<-as.data.frame(overall_summary)
+
+colnames(overall_summary)<-c("Pescado", "Preço", "Zona")
+
+
+# Zona-specific summary data frame
+zona_summary <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+# Order zona_summary by Pescado
+zona_summary <- zona_summary %>% 
+  arrange(Pescado)
+
+zona_summary1 <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                           FUN = function(x) c(mean = mean(x)))
+
+mean(zona_summary1 [, 3], na.rm = TRUE)
+mean_preco_by_zone <- aggregate(zona_summary1[,3] ~ Zona, data=zona_summary, FUN=mean, na.rm=TRUE)
+
+
+# Define the complete set of Genero and Zona combinations
+complete_set <- expand.grid(Pescado = unique(zona_summary$Pescado), 
+                            Zona = c("Fluvial", "Transição", "Lacustre", "Montante"))
+
+# Merge zona_summary with the complete set to add missing combinations
+zona_summary_complete <- merge(zona_summary, complete_set, by = c("Pescado", "Zona"), all = TRUE)
+
+# Order the Zonas
+zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre", "Montante"))
+
+# Order zona_summary_complete by Genero and Zona
+zona_summary_complete <- zona_summary_complete %>% 
+  arrange(Pescado, Zona)
+
+colnames(zona_summary_complete)<-c("Pescado","Zona", "Preço")
+
+# Combinando os dois dataframes
+combined_data <- bind_rows(zona_summary_complete, overall_summary)
+
+# Ajustando níveis dos fatores
+combined_data$Zona <- factor(combined_data$Zona, levels = c("Geral", "Fluvial", "Transição", "Lacustre", "Montante"))
+
+#line_color<-c("#000000","#045e9a", "#da2420", "#009241")
+
+zona_summary_res<-zona_summary_complete[zona_summary_complete$Zona != "Montante", ]
+zona_summary_montante<-zona_summary_complete[zona_summary_complete$Zona == "Montante", ]
+
+# Criar o gráfico com barras de erro
+ggplot(zona_summary_res, aes(x = Pescado, y = zona_summary_res[,3][,1], fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_res[,3][,1],
+                    ymax = zona_summary_res[,3][,1] + zona_summary_res[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#045e9a", "#da2420", "#009241")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos em filés para particular",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+zona_summary_montante <- zona_summary_montante %>%
+  mutate(
+    Preço.mean = Preço[, 1],
+    Preço.sd   = Preço[, 2]
+  )
+
+zona_summary_montante_clean <- zona_summary_montante %>%
+  filter(!is.na(Preço.mean))
+
+ggplot(zona_summary_montante_clean, aes(x = Pescado, y = Preço.mean, fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_montante_clean[,3][,1],
+                    ymax = zona_summary_montante_clean[,3][,1] + zona_summary_montante_clean[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#ffff00")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos em filés para particular",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+########################################################################
+#Peixeiro FILÉ(PREÇO)
+Preco<-BioJuAg23[BioJuAg23$Preço.Filé..Peixeiro.>0,]
+Preco<-Preco[-which(is.na(Preco$Preço.Filé..Peixeiro.)),c("Zona","Espécie","Preço.Filé..Peixeiro.")]
+Preco
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), mean)
+tapply(Preco$Preço,interaction(Preco$Zona,Preco$Espécie), sd)
+names(BioJuAg23)
+
+# Define a vector of names to be replaced
+names_to_replace <- c("Ageneiosus inermis","Ageneiosus ucayalensis", "Auchenipterus osteomystax", "Cichla kelberi", "Cichla piquiti","Geophagus sveni",
+                      "Hemiodus orthonops","Hoplias mbigua","Hoplias sp. 2","Hypophthalmus oremaculatus","Hypostomus cochliodon","Hypostomus regani",
+                      "Iheringichthys labrosus","Leporinus friderici","Leporinus lacustris","Leporinus striatus","Loricariichthys platymetopon",
+                      "Megaleporinus macrocephalus","Megaleporinus obtusidens","Megaleporinus piavussu","Pimelodus maculatus","Pimelodus mysteriosus",
+                      "Pimelodus ornatus","Pinirampus pirinampu","Plagioscion squamosissimus","Potamotrygon amandae","Potamotrygon falkneri",
+                      "Prochilodus lineatus","Pseudoplatystoma corruscans", "Pterodoras granulosus", "Pterygoplichthys ambrosettii","Rhaphiodon vulpinus",
+                      "Satanoperca setepele","Schizodon borellii","Schizodon nasutus","Serrasalmus maculatus","Serrasalmus maculatus (preta)",
+                      "Serrasalmus marginatus")
+
+# Define corresponding replacement names
+replacement_names <- c("Bocudo","Bocudo","Luz-baixa","Tucunaré","Tucunaré","Cará","Bananinha","Traíra","Traíra","Perna-de-moça","Cascudo","Cascudo",
+                       "Mandi","Piau","Piau","Piau","Cascudo","Piauçu","Piapara","Piapara","Mandi","Mandi","Mandi","Barbado","Corvina","Raia",
+                       "Raia","Curimba","Pintado","Armado","Cascudo","Dourado-cachorro","Cará","Piau","Piau","Piranha","Piranha","Piranha")
+
+#Ageneiosus inermis <- Bocudo
+#Ageneiosus ucayalensis <- Bocudo
+#Auchenipterus osteomystax <- Luz-baixa
+#Cichla kelberi <- Tucunaré
+#Cichla piquiti <- Tucunaré
+#Geophagus sveni <- Cará
+#Hemiodus orthonops<- Bananinha
+#Hoplias mbigua <- Traíra
+#Hoplias sp. 2 <- Traíra
+#Hypophthalmus oremaculatus <- Perna-de-moça
+#Hypostomus cochliodon <- Cascudo
+#Hypostomus regani <- Cascudo
+#Iheringichthys labrosus <- Mandi
+#Leporinus friderici <- Piau
+#Leporinus lacustris <- Piau
+#Leporinus striatus <- Piau
+#Loricariichthys platymetopon <- Cascudo
+#Megaleporinus macrocephalus <- Piauçu
+#Megaleporinus obtusidens <- Piapara
+#Megaleporinus piavussu <- Piapara
+#Pimelodus maculatus <- Mandi
+#Pimelodus mysteriosus <- Mandi
+#Pimelodus ornatus <- Mandi
+#Pinirampus pirinampu <- Barbado
+#Plagioscion squamosissimus <- Curvina
+#Potamotrygon amandae <- Raia
+#Potamotrygon falkneri <- Raia
+#Prochilodus lineatus <- Curimba
+#Pseudoplatystoma corruscans <- Pintado
+#Pterodoras granulosus <- Armado
+#Pterygoplichthys ambrosettii <- Cascudo
+#Rhaphiodon vulpinus <- Dourado-cachorro
+#Satanoperca setepele <- Cará
+#Schizodon borellii <- Piau
+#Schizodon nasutus <- Piau
+#Serrasalmus maculatus <- Piranha
+#Serrasalmus maculatus (preta) <- Piranha
+#Serrasalmus marginatus <- Piranha
+
+# Substitute names in Espécie column
+Preco$Espécie <- ifelse(Preco$Espécie %in% names_to_replace,
+                        replacement_names[match(Preco$Espécie, names_to_replace)],
+                        Preco$Espécie)
+
+# Filter out lines where Espécie is not in the list of replacement names
+Preco <- Preco[Preco$Espécie %in% replacement_names, ]
+
+colnames(Preco)<-c("Zona","Pescado","Preço")
+
+# Overall summary data frame
+overall_summary <- aggregate(`Preço` ~ `Pescado`, data = Preco, 
+                             FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+
+# Create a new column indicating Zona as "Geral" for overall summary data
+overall_summary$Zona <- "Geral"
+
+# Reorder columns
+#overall_summary <- overall_summary[, c(2, 1, 3, 4, 5)]
+
+overall_summary<-as.data.frame(overall_summary)
+
+colnames(overall_summary)<-c("Pescado", "Preço", "Zona")
+
+
+# Zona-specific summary data frame
+zona_summary <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                          FUN = function(x) c(mean = mean(x), sd = sd(x)))
+
+# Order zona_summary by Pescado
+zona_summary <- zona_summary %>% 
+  arrange(Pescado)
+
+zona_summary1 <- aggregate(Preço~Pescado + Zona, data = Preco, 
+                           FUN = function(x) c(mean = mean(x)))
+
+mean(zona_summary1 [, 3], na.rm = TRUE)
+mean_preco_by_zone <- aggregate(zona_summary1[,3] ~ Zona, data=zona_summary, FUN=mean, na.rm=TRUE)
+
+
+# Define the complete set of Genero and Zona combinations
+complete_set <- expand.grid(Pescado = unique(zona_summary$Pescado), 
+                            Zona = c("Fluvial", "Transição", "Lacustre", "Montante"))
+
+# Merge zona_summary with the complete set to add missing combinations
+zona_summary_complete <- merge(zona_summary, complete_set, by = c("Pescado", "Zona"), all = TRUE)
+
+# Order the Zonas
+zona_summary_complete$Zona <- factor(zona_summary_complete$Zona, levels = c("Fluvial", "Transição", "Lacustre", "Montante"))
+
+# Order zona_summary_complete by Genero and Zona
+zona_summary_complete <- zona_summary_complete %>% 
+  arrange(Pescado, Zona)
+
+colnames(zona_summary_complete)<-c("Pescado","Zona", "Preço")
+
+# Combinando os dois dataframes
+combined_data <- bind_rows(zona_summary_complete, overall_summary)
+
+# Ajustando níveis dos fatores
+combined_data$Zona <- factor(combined_data$Zona, levels = c("Geral", "Fluvial", "Transição", "Lacustre", "Montante"))
+
+#line_color<-c("#000000","#045e9a", "#da2420", "#009241")
+
+zona_summary_res<-zona_summary_complete[zona_summary_complete$Zona != "Montante", ]
+zona_summary_montante<-zona_summary_complete[zona_summary_complete$Zona == "Montante", ]
+
+# Criar o gráfico com barras de erro
+ggplot(zona_summary_res, aes(x = Pescado, y = zona_summary_res[,3][,1], fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_res[,3][,1],
+                    ymax = zona_summary_res[,3][,1] + zona_summary_res[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#045e9a", "#da2420", "#009241")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos em filés para peixeiros",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+zona_summary_montante <- zona_summary_montante %>%
+  mutate(
+    Preço.mean = Preço[, 1],
+    Preço.sd   = Preço[, 2]
+  )
+
+zona_summary_montante_clean <- zona_summary_montante %>%
+  filter(!is.na(Preço.mean))
+
+ggplot(zona_summary_montante_clean, aes(x = Pescado, y = Preço.mean, fill = Zona)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(aes(ymin = zona_summary_montante_clean[,3][,1],
+                    ymax = zona_summary_montante_clean[,3][,1] + zona_summary_montante_clean[,3][,2]),
+                width = 0,
+                position = position_dodge(0.9)) +
+  scale_fill_manual(values = c("#ffff00")) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Pescados vendidos em filés para peixeiros",
+    x = "",
+    y = "Preço em reais (média e desvio-padrão)",
+    fill = "Zona"
+  )
+
+########### SALVAR zona_summary_complete em uma tabela
+
+
+#### OBJETO MONTANTE E SEM MONTANTE
+# Remove linhas com Zona == "Montante"
+BioJuAg23_sem_montante <- BioJuAg23 %>%
+  filter(Zona != "Montante")
+
+# Cria outro objeto só com Montante
+BioJuAg23_montante <- BioJuAg23 %>%
+  filter(Zona == "Montante")
+
+
+
+
+###############################################################################################
+
+# CPUE Número ####
+
+
+nZonaSpp <- aggregate(Seq ~ Zona+Espécie, data=BioJuAg23_sem_montante, length)
+nZonaSppTab <- as.data.frame.matrix(xtabs(Seq~.,data=nZonaSpp))
+nPescadorZonaMes <- aggregate(Seq ~ Código.Pescador+Mes+Zona, data=BioJuAg23_sem_montante, length)
+nPescadorZona <- tapply(nPescadorZonaMes$Zona,nPescadorZonaMes$Zona,length)
+cpueZonaSppN <- nZonaSppTab/matrix(nPescadorZona, nrow=3,ncol=ncol(nZonaSppTab), byrow=FALSE)
+nSpp <- aggregate(Seq ~ Espécie, data=BioJuAg23_sem_montante, length)
+nPescador <- sum(nPescadorZona)
+Geral <- nSpp$Seq/nPescador
+unique(BioJuAg23_sem_montante$Ponto)
+cpueZonaSppN <- rbind.data.frame(cpueZonaSppN,Geral)
+
+# %%%% das abundâncias das spp
+# Calculating the row sums
+row_sums <- rowSums(cpueZonaSppN, na.rm = TRUE)
+
+# Calculating the percentage for each cell
+percentage_data <- sweep(cpueZonaSppN, 1, row_sums, "/") * 100
+percentage_data # olhar visualmente para colocar no texto
+
+percentage_data<-as.data.frame(percentage_data)
+
+row.names(percentage_data)<-c("Fluvial","Lacustre","Transição","Geral")
+
+# Add row names as a column named "Espécie"
+percentage_data$Zonas <- rownames(percentage_data)
+
+# Reorder the columns with "Espécie" as the first column
+percentage_data <- percentage_data[, c("Zonas", names(percentage_data)[names(percentage_data) != "Zonas"])]
+
+write.xlsx(percentage_data, "Porcentagem abund. número.xlsx")
+
+
+rownames(cpueZonaSppN)[4] <- "Geral"
+round(t(cpueZonaSppN),3)
+cpuePercentualN <- decostand(cpueZonaSppN, method="total")*100
+cpuePercentualN <- as.matrix(cpuePercentualN)
+t(cpuePercentualN[,order(cpuePercentualN["Geral",])])
+
+sort(cpuePercentualN["Geral",], decreasing=TRUE)[1]
+sum(sort(cpuePercentualN["Geral",], decreasing=TRUE)[2:4])
+sort(cpuePercentualN["Fluvial",], decreasing=TRUE)[1]
+Ordem <- order(Geral,decreasing = TRUE)
+jpeg(filename = "CPUE Número.jpeg",
+     width = 18, height = 15, units = "cm", pointsize = 12,
+     quality = 100, res=300)
+par(mfrow=c(4,1), oma=c(13,5,1,0), mar=c(0,0,1,0))
+Ylim=c(0,ceiling(max(cpueZonaSppN)))
+barplot(as.matrix(cpueZonaSppN[4,Ordem]), horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col="yellow1") #000000"
+mtext("GERAL",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppN[1,Ordem]), horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col= "#045e9a") #009241
+mtext("FLUVIAL",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppN[3,Ordem]), horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col="#da2420") #da2420
+mtext("TRANSIÇÃO",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppN[2,Ordem]), horiz=F, las=3, font.axis=3,beside = TRUE, ylim=Ylim, col="#009241") #045e9a
+mtext("LACUSTRE",side=3,line=-1)
+mtext("CPUE (Ind/Pescador)",side=2,line=3,outer=TRUE)
+dev.off()
+
+# CPUE Biomassa ####
+bZonaSpp <- aggregate(Peso.total..g. ~ Zona+Espécie, data=BioJuAg23_sem_montante, sum, na.rm=T)
+bZonaSppTab <- as.data.frame.matrix(xtabs(Peso.total..g.~.,data=bZonaSpp))
+bPescadorZonaMes <- aggregate(Peso.total..g. ~ Código.Pescador+Mes+Zona, data=BioJuAg23_sem_montante, sum, na.rm=T)
+bPescadorZona <- tapply(bPescadorZonaMes$Zona,bPescadorZonaMes$Zona,length)
+cpueZonaSppB <- bZonaSppTab/matrix(bPescadorZona, nrow=3,ncol=ncol(bZonaSppTab), byrow=FALSE)
+bSpp <- aggregate(Peso.total..g. ~ Espécie, data=BioJuAg23_sem_montante, sum, na.rm=T)
+bPescador <- sum(bPescadorZona)
+GeralB <- bSpp$Peso.total..g./bPescador
+cpueZonaSppB <- rbind.data.frame(cpueZonaSppB,GeralB)
+
+# %%%% das abundâncias das spp
+# Calculating the row sums
+row_sums <- rowSums(cpueZonaSppB, na.rm = TRUE)
+
+# Calculating the percentage for each cell
+percentage_data <- sweep(cpueZonaSppB, 1, row_sums, "/") * 100
+percentage_data # olhar visualmente para colocar no texto
+
+percentage_data<-as.data.frame(percentage_data)
+
+row.names(percentage_data)<-c("Fluvial","Lacustre","Transição","Geral")
+
+# Add row names as a column named "Espécie"
+percentage_data$Zonas <- rownames(percentage_data)
+
+# Reorder the columns with "Espécie" as the first column
+percentage_data <- percentage_data[, c("Zonas", names(percentage_data)[names(percentage_data) != "Zonas"])]
+
+write.xlsx(percentage_data, "Porcentagem abund. biomassa.xlsx")
+
+rownames(cpueZonaSppB)[4] <- "Geral"
+round(t(cpueZonaSppB),3)
+
+cpuePercentualB <- decostand(cpueZonaSppB, method="total")*100
+cpuePercentualB <- as.matrix(cpuePercentualB)
+t(cpuePercentualB[,order(cpuePercentualB["Geral",])])
+round(sort(cpuePercentualB["Geral",], decreasing=TRUE),3)
+sort(cpuePercentualB["Geral",], decreasing=TRUE)[2:4]
+sort(cpuePercentualB["Fluvial",], decreasing=TRUE)[1]
+Ordem <- order(GeralB,decreasing = TRUE)
+jpeg(filename = "CPUE Biomassa.jpeg",
+     width = 18, height = 13, units = "cm", pointsize = 12,
+     quality = 100, res=300)
+par(mfrow=c(4,1), oma=c(13,5,1,0), mar=c(0,0,1,0))
+Ylim=c(0,ceiling(max(cpueZonaSppB)/1000))
+barplot(as.matrix(cpueZonaSppB[4,Ordem])/1000, horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col="yellow1")
+mtext("GERAL",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppB[1,Ordem])/1000, horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col="#045e9a")
+mtext("FLUVIAL",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppB[3,Ordem])/1000, horiz=F, las=3, font.axis=3,beside = TRUE, xaxt="n", ylim=Ylim, col="#da2420")
+mtext("TRANSIÇÃO",side=3,line=-1)
+barplot(as.matrix(cpueZonaSppB[2,Ordem])/1000, horiz=F, las=3, font.axis=3,beside = TRUE, ylim=Ylim, col="#009241")
+mtext("LACUSTRE",side=3,line=-1)
+mtext("CPUE (kg/Pescador)",side=2,line=3,outer=TRUE)
+dev.off()
+
+# Riqueza e Diversidade #####
+Shannon <- diversity(cpueZonaSppN, index="shannon")
+Riqueza <- specnumber(cpueZonaSppN)
+J <- Shannon/log(Riqueza) # Pielou's evenness (J)
+Indices <- rbind(J,Shannon)
+Ylim=c(0,1)
+EscalaEixo = 1/3
+Indices[2,] <- Indices[2,]*EscalaEixo
+jpeg(filename = "Diversidade e Equitabilidade.jpeg",
+     width = 12, height = 8, units = "cm", pointsize = 12,
+     quality = 75, res=300)
+par(mfrow=c(1,1), mar=c(3,4,2,4), oma=c(0,0,0,0))
+barplot(as.matrix(Indices[,c(1,3,2)]), horiz=FALSE, las=1, font.axis=1, beside=TRUE, ylim=Ylim, 
+        col=c("#da2420", "#045e9a"), 
+        legend.text = c("Equitabilidade", "Índice de Diversidade"),
+        args.legend = list(x = "top", ncol=2, inset=-.15, bty="n", cex=0.8),
+        cex.axis=0.8, cex.names = 0.8)
+mtext("Equitabilidade de Pielou", side=2, line=3, cex=0.8)
+mtext("Índice de Diversidade", side=4, line=2.5, cex=0.8)
+# Adiciona apenas os ticks no eixo 4, sem rótulos
+at_vals <- seq(0, 1, 0.2)
+axis(side=4, at=at_vals, labels=FALSE, tick=TRUE, cex.axis=0.8)
+# Rótulos rotacionados em 45 graus no eixo 4
+text(x = par("usr")[2] + 0.4,  # ajusta posição horizontal
+     y = at_vals,
+     labels = format(at_vals * 3, nsmall = 1, trim = TRUE),
+     srt = 0,
+     adj = 0,
+     xpd = TRUE,
+     cex = 0.8)
+dev.off()
+
+# Distribuição de tamanho #####
+jpeg(filename = "Tamanhos.jpeg",
+     width = 18, height = 13, units = "cm", pointsize = 12,
+     quality = 100, res=300)
+par(mfrow=c(4,1), mar=c(1,0,1,0), oma=c(4,6,1,0))
+x<-hist(BioJuAg23_sem_montante$CP, main="", col = "yellow1", xaxt="n")
+mtext("Geral", side=3, line=0, outer=F, cex=1.25)
+abline(v=mean(BioJuAg23_sem_montante$CP, na.rm=T), col="black",lty=1, lwd=3)
+hist(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Fluvial"], main="",col = "#045e9a", breaks=x$breaks, xaxt="n")
+mtext("Fluvial", side=3, line=0, outer=F, cex=1.25)
+abline(v=mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Fluvial"], na.rm=T), col="black",lty=1, lwd=3)
+hist(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Transição"], main="",col = "#da2420", breaks=x$breaks, xaxt="n")
+mtext("Transição", side=3, line=0, outer=F, cex=1.25)
+abline(v=mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Transição"], na.rm=T), col="black",lty=1, lwd=3)
+hist(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Lacustre"], main="",col = "#009241", xlab=, breaks=x$breaks)
+abline(v=mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Lacustre"], na.rm=T), col="black",lty=1, lwd=3)
+mtext("Lacustre", side=3, line=0, outer=F, cex=1.25)
+mtext("Comprimento Padrão (cm)", side=1, line=2, outer=T, cex=1.25)
+mtext("Frequência (Número de indivíduos)", side=2, line=3, outer=T, cex=1.25)
+dev.off()
+
+range(BioJuAg23_sem_montante$CP, na.rm=TRUE)
+mean(BioJuAg23_sem_montante$CP, na.rm=TRUE)
+
+range(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Fluvial"], na.rm=TRUE)
+mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Fluvial"], na.rm=TRUE)
+
+range(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Transição"], na.rm=TRUE)
+mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Transição"], na.rm=TRUE)
+
+range(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Lacustre"], na.rm=TRUE)
+mean(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Zona=="Lacustre"], na.rm=TRUE)
+
+# Peso Comprimento, max e min ####
+Comp <- levels(factor(BioJuAg23_sem_montante$Espécie))
+TabParametros <- matrix(NA, nrow=length(Comp), ncol=17)
+colnames(TabParametros) <- c("CP.min", "CP.max", "WT.min", "WT.max","a","b","2,5%","97,5%","% fêmeas","% machos", "% jovens","% adultos","N total", "N machos", "N fêmeas", "N jovens", "N adultos")
+rownames(TabParametros) <- Comp
+i<-1
+for(i in 1:length(Comp)){
+  tryCatch({
+    TabParametros[i, 1:2] <- range(BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Espécie == Comp[i]], na.rm = TRUE)
+    TabParametros[i, 3:4] <- range(BioJuAg23_sem_montante$Peso.total..g.[BioJuAg23_sem_montante$Espécie == Comp[i]], na.rm = TRUE)
+    
+    x <- BioJuAg23_sem_montante$CP[BioJuAg23_sem_montante$Espécie == Comp[i]]
+    y <- BioJuAg23_sem_montante$Peso.total..g.[BioJuAg23_sem_montante$Espécie == Comp[i]]
+    
+    gender_counts <- BioJuAg23_sem_montante$Sexo[BioJuAg23_sem_montante$Espécie == Comp[i]]
+    gender_counts <- na.omit(gender_counts)
+    TabParametros[i, 9] <- (sum(gender_counts == "F", na.rm = TRUE) / length(gender_counts)) * 100
+    TabParametros[i, 10] <- (sum(gender_counts == "M", na.rm = TRUE) / length(gender_counts)) * 100
+    
+    TabParametros[i, 15] <- sum(gender_counts == "F", na.rm = TRUE)
+    TabParametros[i, 14] <- sum(gender_counts == "M", na.rm = TRUE)
+    
+    maturidade <- BioJuAg23_sem_montante$Estagio[BioJuAg23_sem_montante$Espécie == Comp[i]]
+    
+    TabParametros[i, 13] <- length(maturidade)
+    
+    maturidade2 <- maturidade[!is.na(maturidade)]
+    
+    TabParametros[i, 11] <- (sum(maturidade == "IMT", na.rm = TRUE) / length(maturidade2)) * 100
+    
+    count <- maturidade[!is.na(maturidade) & maturidade != "IMT"]
+    
+    TabParametros[i, 12] <- (length(count) / length(maturidade2)) * 100
+    
+    TabParametros[i, 16] <- sum(maturidade == "IMT", na.rm = TRUE)
+    
+    TabParametros[i, 17] <- sum(maturidade != "IMT", na.rm = TRUE)
+    
+    if(length(y) > 20){
+      WT_LT <- lm(log10(y) ~ log10(x))
+      TabParametros[i, 5] <- round(10^WT_LT$coefficients[1], 4)
+      TabParametros[i, 6] <- round(WT_LT$coefficients[2], 4)
+      Resumo=summary(WT_LT)
+      EP=Resumo$coefficients[2,2]
+      parametros=cbind(Resumo$coefficients[,1],confint(WT_LT))
+      TabParametros[i, 7] <- parametros[2,2]
+      TabParametros[i, 8] <- parametros[2,3]
+    }
+    
+    
+  }, error = function(e) {
+    cat("Error occurred for species:", Comp[i], "\n")
+    TabParametros[i, ] <- NA
+  })
+}
+
+
+TabParametros[is.nan(TabParametros) | is.infinite(TabParametros)] <- NA
+
+TabParametros<-as.data.frame(TabParametros)
+
+TabParametros$Espécie <- rownames(TabParametros)
+
+# Reorder the columns with "Espécie" as the first column
+TabParametros <- TabParametros[, c("Espécie", names(TabParametros)[names(TabParametros) != "Espécie"])]
+
+TabParametros<-as.data.frame(TabParametros)
+
+write.xlsx(TabParametros, "Parametros especies.xlsx")
+
+Zones <- unique(BioJuAg23_sem_montante$Zona)
+TabParametros2 <- expand.grid(Espécie=Spp, Zona=Zones)
+TabParametros2$CP <- NA  # Initialize CP_medio with NA
+
+
+# Calculate the mean CP for each species and zone
+mean_CP <- aggregate(CP ~ Espécie + Zona, data=BioJuAg23_sem_montante, FUN=mean, na.rm=TRUE)
+mean_CP
+# Merge the calculated mean CP with the TabParametros2 data frame
+TabParametros2 <- merge(TabParametros2, mean_CP, by=c("Espécie", "Zona"), all.x=TRUE)
+mean(TabParametros2[, 4], na.rm = TRUE)
+mean_CP_by_zone <- aggregate(CP.y ~ Zona, data=TabParametros2, FUN=mean, na.rm=TRUE)
+
+TabParametros2 <-as.data.frame(TabParametros2)
+TabParametros2$Espécie <- rownames(TabParametros2)
+
+# Reorder the columns with "Espécie" as the first column
+TabParametros2 <- TabParametros2[, c("Espécie", names(TabParametros2)[names(TabParametros2) != "Espécie"])]
+
+TabParametros2<-as.data.frame(TabParametros2)
+
+TabParametros2<-TabParametros2[,-3]
+
+colnames(TabParametros2)<-c("Espécie","Zona","CP médio")
+
+
+# Add row names as a column named "Espécie"
+TabParametros2$Espécie <- rownames(TabParametros2)
+
+# Reprodução #####
+repG <- table(BioJuAg23_sem_montante$Estagio)[c(2,3,5,1,4)]
+repF <- table(BioJuAg23_sem_montante$Estagio[BioJuAg23_sem_montante$Zona=="Fluvial"])[c(2,3,5,1,4)]
+repT <- table(BioJuAg23_sem_montante$Estagio[BioJuAg23_sem_montante$Zona=="Transição"])[c(2,3,5,1,4)]
+repL <- table(BioJuAg23_sem_montante$Estagio[BioJuAg23_sem_montante$Zona=="Lacustre"])[c(2,3,5,1,4)]
+repMat<-t(as.matrix(rbind(repL,repT,repF,repG)))
+colnames(repMat) <- c("Lacustre", "Transição", "Fluvial", "Geral")
+round(decostand(repMat, method="total", MARGIN = 2)*100,2)
+jpeg(filename = "Reprodução.jpeg",
+     width = 18, height = 13, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+par(mfrow = c(1, 1), mar = c(4, 6, 1, 1), oma = c(0, 0, 0, 0))
+cores_zonas <- rep(c("#009241", "#da2420", "#045e9a", "yellow1"), each = 5)
+x1 <- barplot(repMat, beside = TRUE, horiz = TRUE, yaxt = "n", col = cores_zonas, xlim = c(0, ceiling(max(repMat) * 1.15)))
+mtext(side = 2, line = 4, at = colMeans(x1), text = colnames(repMat), cex = 1.25, las = 3)
+axis(side = 2, at = x1, labels = rep(rownames(repMat), 4), cex.axis = 0.75, las = 2)
+mtext("Frequência (Número de indivíduos)", side = 1, line = 3, cex = 1.25)
+dev.off()
+
+
+# Alimentação #####
+aliG <- table(BioJuAg23_sem_montante$GR)
+aliF <- table(BioJuAg23_sem_montante$GR[BioJuAg23_sem_montante$Zona=="Fluvial"])
+aliT <- table(BioJuAg23_sem_montante$GR[BioJuAg23_sem_montante$Zona=="Transição"])
+aliL <- table(BioJuAg23_sem_montante$GR[BioJuAg23_sem_montante$Zona=="Lacustre"])
+aliMat<-t(as.matrix(rbind(aliL,aliT,aliF,aliG)))
+colnames(aliMat) <- c("Lacustre", "Transição", "Fluvial", "Geral")
+round(decostand(aliMat, method="total", MARGIN = 2)*100,2)
+jpeg(filename = "Alimentação.jpeg",
+     width = 18, height = 13, units = "cm", pointsize = 12,
+     quality = 100, res=300)
+par(mfrow=c(1,1), mar=c(4,6,1,1), oma=c(0,0,0,0))
+cores_zonas <- rep(c("#009241", "#da2420", "#045e9a", "yellow1"), each = 4)
+max_bar_height <- max(aliMat)  # maior valor entre todas as barras
+x_limit <- ceiling(max_bar_height * 1.15)  # adiciona 15% de margem
+x1 <- barplot(aliMat,
+              beside = TRUE,
+              horiz = TRUE,
+              yaxt = "n",
+              col = cores_zonas,
+              xlim = c(0, x_limit))
+mtext(side=2, line=2, at=colMeans(x1), text = colnames(aliMat), cex=1.25,las=3)
+mtext(side=2, line=4, at=mean(x1), text = "Grau de Repleção", cex=1.25,las=3)
+axis(side=2, at=x1, labels=rep(rownames(aliMat),4), cex=0.7,las=2)
+mtext("Frequência (Número de indivíduos)", side=1, line=3, cex=1.25)
+dev.off()
+
+
+############# MONTANTE
+nZonaSpp <- aggregate(Seq ~ Zona+Espécie, data=BioJuAg23_montante, length)
+nZonaSppTab <- as.data.frame.matrix(xtabs(Seq~.,data=nZonaSpp))
+nPescadorZonaMes <- aggregate(Seq ~ Código.Pescador+Mes+Zona, data=BioJuAg23_montante, length)
+nPescadorZona <- tapply(nPescadorZonaMes$Zona,nPescadorZonaMes$Zona,length)
+cpueZonaSppN <- nZonaSppTab/matrix(nPescadorZona, nrow=3,ncol=ncol(nZonaSppTab), byrow=FALSE)
+nSpp <- aggregate(Seq ~ Espécie, data=BioJuAg23_montante, length)
+nPescador <- sum(nPescadorZona)
+Geral <- nSpp$Seq/nPescador
+unique(BioJuAg23_montante$Ponto)
+
+
+# %%%% das abundâncias das spp
+# Calculating the row sums
+row_sums <- rowSums(cpueZonaSppN, na.rm = TRUE)
+
+# Calculating the percentage for each cell
+percentage_data <- sweep(cpueZonaSppN, 1, row_sums, "/") * 100
+percentage_data # olhar visualmente para colocar no texto
+
+percentage_data<-as.data.frame(percentage_data)
+
+row.names(percentage_data)<-c("Montante")
+
+# Add row names as a column named "Espécie"
+percentage_data$Zonas <- rownames(percentage_data)
+
+# Reorder the columns with "Espécie" as the first column
+percentage_data <- percentage_data[, c("Zonas", names(percentage_data)[names(percentage_data) != "Zonas"])]
+
+write.xlsx(percentage_data, "Porcentagem abund. número (montante).xlsx")
+
+
+# Set species names (column names are already species)
+cpuePercentualN <- decostand(cpueZonaSppN, method = "total") * 100
+cpuePercentualN <- as.matrix(cpuePercentualN)
+
+Ordem <- order(as.numeric(cpuePercentualN[1, ]), decreasing = TRUE)
+cpuePercentualN_ord <- cpuePercentualN[, Ordem]
+
+# Set plotting parameters
+jpeg(filename = "CPUE Número (Montante).jpeg",
+     width = 18, height = 10, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+
+par(mfrow = c(1, 1), mar = c(10, 4, 2, 1))  # Larger bottom margin for labels
+Ylim <- c(0, ceiling(max(cpueZonaSppN)))
+
+# Create barplot
+barplot(as.matrix(cpueZonaSppN[1, Ordem]),
+        horiz = FALSE,
+        las = 3,
+        font.axis = 3,
+        beside = TRUE,
+        col = "gray",
+        ylim = Ylim,
+        cex.names = 0.8,
+        main = "Montante",
+        ylab = "CPUE (Ind/Pescador)")
+
+dev.off()
+
+# CPUE Biomassa ####
+# Soma da biomassa por espécie
+bSpp_montante <- aggregate(Peso.total..g. ~ Espécie, data = BioJuAg23_montante, sum, na.rm = TRUE)
+# Número de pescadores únicos por mês (cada linha = pescador x mês x zona)
+bPescadorMes_montante <- aggregate(Peso.total..g. ~ Código.Pescador + Mes, data = BioJuAg23_montante, sum, na.rm = TRUE)
+n_pescadores_montante <- nrow(bPescadorMes_montante)
+# CPUE biomassa por espécie (biomassa total dividido por número de pescadores)
+cpue_montante <- bSpp_montante
+cpue_montante$CPUE <- cpue_montante$Peso.total..g. / n_pescadores_montante
+# Organiza em formato matriz
+cpue_montante_tab <- as.matrix(cpue_montante[, "CPUE"])
+rownames(cpue_montante_tab) <- cpue_montante$Espécie
+# Calcula a porcentagem de contribuição por espécie
+cpue_percentual <- cpue_montante_tab / sum(cpue_montante_tab) * 100
+# Visualização (opcional)
+round(sort(cpue_percentual[,1], decreasing = TRUE), 2)
+# Salva como Excel (com nomes de espécies e %)
+library(openxlsx)
+output <- data.frame(Espécie = rownames(cpue_percentual),
+                     CPUE_kg_por_pescador = round(cpue_montante_tab[,1]/1000, 3),
+                     Percentual = round(cpue_percentual[,1], 2))
+
+write.xlsx(output, "Porcentagem abund. biomassa (montante).xlsx", rowNames = FALSE)
+
+
+# Cálculo da CPUE em kg/pescador para Montante
+bZonaSpp <- aggregate(Peso.total..g. ~ Zona + Espécie, data = BioJuAg23_montante, sum, na.rm = TRUE)
+bZonaSppTab <- as.data.frame.matrix(xtabs(Peso.total..g. ~ ., data = bZonaSpp))
+
+# Número de pescadores por zona
+bPescadorZonaMes <- aggregate(Peso.total..g. ~ Código.Pescador + Mes + Zona, data = BioJuAg23_montante, sum, na.rm = TRUE)
+bPescadorZona <- tapply(bPescadorZonaMes$Zona, bPescadorZonaMes$Zona, length)
+
+# CPUE Montante (somente uma linha, sem mais regiões)
+cpueMontanteB <- bZonaSppTab["Montante", ] / bPescadorZona["Montante"]
+
+# Ordena espécies por CPUE decrescente
+cpueMontanteB <- unlist(bZonaSppTab["Montante", ]) / bPescadorZona["Montante"]
+Ordem <- order(cpueMontanteB, decreasing = TRUE)
+
+# Gráfico
+jpeg(filename = "CPUE Biomassa (Montante).jpeg",
+     width = 18, height = 10, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+par(mfrow = c(1, 1), mar = c(10, 4, 2, 1))  # margem inferior maior para nomes
+Ylim <- c(0, ceiling(max(cpueMontanteB) / 1000))
+barplot(cpueMontanteB[Ordem] / 1000,
+        horiz = FALSE,
+        las = 3,
+        font.axis = 3,
+        beside = TRUE,
+        col = "grey",
+        ylim = Ylim,
+        cex.names = 0.8,
+        ylab = "CPUE (kg/Pescador)",
+        main = "Montante")
+dev.off()
+
+# Riqueza e Diversidade #####
+Shannon <- diversity(cpueZonaSppN["Montante", ], index = "shannon")
+Riqueza <- specnumber(cpueZonaSppN["Montante", ])
+J <- Shannon / log(Riqueza)  # Equitabilidade de Pielou
+# Matriz com os índices para Montante
+Indices <- matrix(c(J, Shannon * (1/3)),  # índice de diversidade escalado
+                  nrow = 2,
+                  byrow = TRUE)
+rownames(Indices) <- c("Equitabilidade", "Índice de Diversidade")
+colnames(Indices) <- "Montante"
+# Parâmetros do gráfico
+Ylim <- c(0, 1)
+at_vals <- seq(0, 1, 0.2)
+
+# Plot
+jpeg(filename = "Diversidade e Equitabilidade (Montante).jpeg",
+     width = 12, height = 10, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+
+par(mfrow = c(1,1), mar = c(3, 4, 2, 4), oma = c(0,0,0,0))
+barplot(Indices,
+        horiz = FALSE,
+        las = 1,
+        font.axis = 1,
+        beside = TRUE,
+        ylim = Ylim,
+        col = c("#da2420", "#045e9a"),
+        legend.text = c("Equitabilidade", "Índice de Diversidade"),
+        args.legend = list(x = "top", ncol = 2, inset = -0.15, bty = "n", cex = 0.8),
+        cex.axis = 0.8,
+        cex.names = 0.9,
+        space = 0.2,   # pequeno espaço entre as barras
+        width = 1)     # barras largas
+# Eixos
+mtext("Equitabilidade de Pielou", side = 2, line = 3, cex = 0.8)
+mtext("Índice de Diversidade", side = 4, line = 2.5, cex = 0.8)
+axis(side = 4, at = at_vals, labels = FALSE, tick = TRUE, cex.axis = 0.8)
+# Rótulos rotacionados (aqui deixei srt = 0 pois você usou assim)
+text(x = par("usr")[2] + 0.2,
+     y = at_vals,
+     labels = format(at_vals * 3, nsmall = 1, trim = TRUE),
+     srt = 0,
+     adj = 0,
+     xpd = TRUE,
+     cex = 0.8)
+dev.off()
+
+# Distribuição de tamanho - Montante ####
+# Distribuição de tamanho #####
+jpeg(filename = "Tamanhos (Montante).jpeg",
+     width = 12, height = 10, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+par(mfrow = c(1, 1), mar = c(4, 5, 2, 1), oma = c(0, 0, 0, 0))
+x <- hist(BioJuAg23_montante$CP, main = "", col = "grey", 
+          xlab = "", ylab = "", cex.axis = 1.1)
+abline(v = mean(BioJuAg23_montante$CP, na.rm = TRUE), col = "black", lty = 1, lwd = 3)
+mtext("Montante", side = 3, line = 0, cex = 1.25)
+mtext("Comprimento Padrão (cm)", side = 1, line = 2.5, cex = 1.25)
+mtext("Frequência (Número de indivíduos)", side = 2, line = 3.5, cex = 1.25)
+dev.off()
+
+range(BioJuAg23_montante$CP, na.rm=TRUE)
+mean(BioJuAg23_montante$CP, na.rm=TRUE)
+
+# Peso Comprimento, max e min ####
+Comp <- levels(factor(BioJuAg23_montante$Espécie))
+TabParametros <- matrix(NA, nrow=length(Comp), ncol=17)
+colnames(TabParametros) <- c("CP.min", "CP.max", "WT.min", "WT.max","a","b","2,5%","97,5%","% fêmeas","% machos", "% jovens","% adultos","N total", "N machos", "N fêmeas", "N jovens", "N adultos")
+rownames(TabParametros) <- Comp
+i<-1
+for(i in 1:length(Comp)){
+  tryCatch({
+    TabParametros[i, 1:2] <- range(BioJuAg23_montante$CP[BioJuAg23_montante$Espécie == Comp[i]], na.rm = TRUE)
+    TabParametros[i, 3:4] <- range(BioJuAg23_montante$Peso.total..g.[BioJuAg23_montante$Espécie == Comp[i]], na.rm = TRUE)
+    
+    x <- BioJuAg23_montante$CP[BioJuAg23_montante$Espécie == Comp[i]]
+    y <- BioJuAg23_montante$Peso.total..g.[BioJuAg23_montante$Espécie == Comp[i]]
+    
+    gender_counts <- BioJuAg23_montante$Sexo[BioJuAg23_montante$Espécie == Comp[i]]
+    gender_counts <- na.omit(gender_counts)
+    TabParametros[i, 9] <- (sum(gender_counts == "F", na.rm = TRUE) / length(gender_counts)) * 100
+    TabParametros[i, 10] <- (sum(gender_counts == "M", na.rm = TRUE) / length(gender_counts)) * 100
+    
+    TabParametros[i, 15] <- sum(gender_counts == "F", na.rm = TRUE)
+    TabParametros[i, 14] <- sum(gender_counts == "M", na.rm = TRUE)
+    
+    maturidade <- BioJuAg23_montante$Estagio[BioJuAg23_montante$Espécie == Comp[i]]
+    
+    TabParametros[i, 13] <- length(maturidade)
+    
+    maturidade2 <- maturidade[!is.na(maturidade)]
+    
+    TabParametros[i, 11] <- (sum(maturidade == "IMT", na.rm = TRUE) / length(maturidade2)) * 100
+    
+    count <- maturidade[!is.na(maturidade) & maturidade != "IMT"]
+    
+    TabParametros[i, 12] <- (length(count) / length(maturidade2)) * 100
+    
+    TabParametros[i, 16] <- sum(maturidade == "IMT", na.rm = TRUE)
+    
+    TabParametros[i, 17] <- sum(maturidade != "IMT", na.rm = TRUE)
+    
+    if(length(y) > 20){
+      WT_LT <- lm(log10(y) ~ log10(x))
+      TabParametros[i, 5] <- round(10^WT_LT$coefficients[1], 4)
+      TabParametros[i, 6] <- round(WT_LT$coefficients[2], 4)
+      Resumo=summary(WT_LT)
+      EP=Resumo$coefficients[2,2]
+      parametros=cbind(Resumo$coefficients[,1],confint(WT_LT))
+      TabParametros[i, 7] <- parametros[2,2]
+      TabParametros[i, 8] <- parametros[2,3]
+    }
+    
+    
+  }, error = function(e) {
+    cat("Error occurred for species:", Comp[i], "\n")
+    TabParametros[i, ] <- NA
+  })
+}
+
+
+TabParametros[is.nan(TabParametros) | is.infinite(TabParametros)] <- NA
+
+TabParametros<-as.data.frame(TabParametros)
+
+TabParametros$Espécie <- rownames(TabParametros)
+
+# Reorder the columns with "Espécie" as the first column
+TabParametros <- TabParametros[, c("Espécie", names(TabParametros)[names(TabParametros) != "Espécie"])]
+
+TabParametros<-as.data.frame(TabParametros)
+
+write.xlsx(TabParametros, "Parametros especies (montante).xlsx")
+
+Zones <- unique(BioJuAg23_montante$Zona)
+TabParametros2 <- expand.grid(Espécie=Spp, Zona=Zones)
+TabParametros2$CP <- NA  # Initialize CP_medio with NA
+
+
+# Calculate the mean CP for each species and zone
+mean_CP <- aggregate(CP ~ Espécie + Zona, data=BioJuAg23_montante, FUN=mean, na.rm=TRUE)
+mean_CP
+
+# Merge the calculated mean CP with the TabParametros2 data frame
+TabParametros2 <- merge(TabParametros2, mean_CP, by=c("Espécie", "Zona"), all.x=TRUE)
+mean(TabParametros2[, 4], na.rm = TRUE)
+mean_CP_by_zone <- aggregate(CP.y ~ Zona, data=TabParametros2, FUN=mean, na.rm=TRUE)
+
+TabParametros2 <-as.data.frame(TabParametros2)
+TabParametros2$Espécie <- rownames(TabParametros2)
+
+# Reorder the columns with "Espécie" as the first column
+TabParametros2 <- TabParametros2[, c("Espécie", names(TabParametros2)[names(TabParametros2) != "Espécie"])]
+
+TabParametros2<-as.data.frame(TabParametros2)
+
+TabParametros2<-TabParametros2[,-3]
+
+colnames(TabParametros2)<-c("Espécie","Zona","CP médio")
+
+
+# Add row names as a column named "Espécie"
+TabParametros2$Espécie <- rownames(TabParametros2)
+
+
+
+# Reprodução #####
+# Reprodução — somente Montante ####
+repM <- table(BioJuAg23_montante$Estagio)[c(2,3,5,1,4)]  # reordena os estágios
+# Converte para matriz 1 coluna (necessário para barplot com beside=TRUE)
+repMat <- as.matrix(repM)
+colnames(repMat) <- "Montante"
+# Plot
+jpeg(filename = "Reprodução (Montante).jpeg",
+     width = 12, height = 9, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+
+par(mfrow = c(1, 1), mar = c(4, 6, 1, 1), oma = c(0, 0, 0, 0))
+
+# Cores para os 5 estágios
+cor_montante <- rep("grey", 5)
+# Gráfico de barras
+x1 <- barplot(repMat,
+              beside = TRUE,
+              horiz = TRUE,
+              yaxt = "n",
+              col = cor_montante,
+              xlab = "Frequência (Número de indivíduos)",
+              xlim = c(0, ceiling(max(repMat) * 1.15)))
+# Eixo y (estágios)
+axis(side = 2, at = x1, labels = rownames(repMat), cex.axis = 0.9, las = 2)
+# Título lateral opcional
+mtext("Montante", side = 2, line = 3.5, cex = 1.25)
+dev.off()
+
+
+# Alimentação — somente Montante ####
+aliM <- table(BioJuAg23_montante$GR)  # frequência dos graus de repleção
+# Converte para matriz com 1 coluna
+aliMat <- as.matrix(aliM)
+colnames(aliMat) <- "Montante"
+# Plot
+jpeg(filename = "Alimentacao (Montante).jpeg",
+     width = 12, height = 9, units = "cm", pointsize = 12,
+     quality = 100, res = 300)
+par(mfrow = c(1, 1), mar = c(4, 6, 1, 1), oma = c(0, 0, 0, 0))
+# Cores para os graus de repleção (todos "yellow1")
+cor_montante <- rep("grey", nrow(aliMat))
+# Gráfico
+x1 <- barplot(aliMat,
+              beside = TRUE,
+              horiz = TRUE,
+              yaxt = "n",
+              col = cor_montante,
+              xlab = "Frequência (Número de indivíduos)",
+              xlim = c(0, max(aliMat) * 1.1))
+# Eixo Y com os graus de repleção
+axis(side = 2, at = x1, labels = rownames(aliMat), cex.axis = 0.9, las = 2)
+# Título (se desejar)
+mtext("Grau de Repleção ", side = 2, line = 4, cex = 1.2)
+mtext("Montante", side = 2, line = 2, cex = 1.2)
+dev.off()
