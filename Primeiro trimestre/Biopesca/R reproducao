@@ -1,0 +1,642 @@
+# ============================================================
+# Reprodução — gráficos empilhados (RESERVATÓRIO)
+# Trimestral 2026
+#
+# Saídas:
+#   1) Reservatório inteiro
+#   2) Cada zona do reservatório
+#   3) Cada espécie considerando todo o reservatório
+#
+# Observações:
+#   - Montante é excluído.
+#   - Linhas com Espécie = "outros" são excluídas.
+#   - A ordem dos meses é definida automaticamente pelas datas.
+# ============================================================
+
+rm(list = ls())
+
+# ------------------------------------------------------------
+# Pasta de trabalho e pacotes
+# ------------------------------------------------------------
+
+setwd(
+  "C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2026"
+)
+
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(openxlsx)
+
+arquivo <- "Biopesca_2026_ TRIMESTRAL_-M-A-M.xlsx"
+
+BioTri26 <- data.frame(
+  read_xlsx(arquivo, sheet = "Biometria"),
+  check.names = TRUE
+)
+
+# Compatibilização do nome da coluna Zona
+names(BioTri26)[
+  names(BioTri26) %in% c("Zona.", "Zona..", "Zona...")
+] <- "Zona"
+
+# Remove colunas completamente vazias eventualmente criadas pelo Excel
+BioTri26 <- BioTri26[
+  ,
+  !grepl("^X(\\.\\d+)?$", names(BioTri26)),
+  drop = FALSE
+]
+
+# ------------------------------------------------------------
+# Pastas de saída
+# ------------------------------------------------------------
+
+out_dir <- file.path(getwd(), "reprodutivos_reservatorio")
+
+out_geral    <- file.path(out_dir, "geral")
+out_zonas    <- file.path(out_dir, "zonas")
+out_especies <- file.path(out_dir, "especies")
+
+dir.create(out_geral, showWarnings = FALSE, recursive = TRUE)
+dir.create(out_zonas, showWarnings = FALSE, recursive = TRUE)
+dir.create(out_especies, showWarnings = FALSE, recursive = TRUE)
+
+# ------------------------------------------------------------
+# Configurações gerais
+# ------------------------------------------------------------
+
+mes_lbl <- c(
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+)
+
+# Ordem ecológica/visual das zonas do reservatório
+zone_levels <- c("Fluvial", "Transição", "Lacustre")
+
+stage_levels <- c("IMT", "MAT", "RPD", "ESG", "REG")
+
+# Cores fixas dos estágios
+stage_colors <- c(
+  "IMT" = "#4D4D4D",
+  "MAT" = "#E69F00",
+  "RPD" = "#D55E00",
+  "ESG" = "#0072B2",
+  "REG" = "#009E73"
+)
+
+# Tamanhos dos elementos gráficos
+title_size        <- 26
+axis_title_size   <- 20
+axis_text_size    <- 16
+legend_title_size <- 18
+legend_text_size  <- 15
+
+# ------------------------------------------------------------
+# Funções auxiliares
+# ------------------------------------------------------------
+
+parse_data_biopesca <- function(x) {
+
+  if (inherits(x, "Date")) {
+    return(x)
+  }
+
+  if (inherits(x, "POSIXct") || inherits(x, "POSIXt")) {
+    return(as.Date(x))
+  }
+
+  if (is.numeric(x)) {
+    return(as.Date(x, origin = "1899-12-30"))
+  }
+
+  x <- trimws(as.character(x))
+  x[x == ""] <- NA
+
+  # Tenta primeiro o formato reconhecido automaticamente
+  data_convertida <- suppressWarnings(as.Date(x))
+
+  # Tenta mês/dia/ano
+  idx <- is.na(data_convertida) & !is.na(x)
+
+  if (any(idx)) {
+    data_convertida[idx] <- suppressWarnings(
+      as.Date(x[idx], format = "%m/%d/%Y")
+    )
+  }
+
+  # Tenta dia/mês/ano
+  idx <- is.na(data_convertida) & !is.na(x)
+
+  if (any(idx)) {
+    data_convertida[idx] <- suppressWarnings(
+      as.Date(x[idx], format = "%d/%m/%Y")
+    )
+  }
+
+  data_convertida
+}
+
+normalizar_texto <- function(x) {
+
+  x <- trimws(as.character(x))
+
+  iconv(
+    tolower(x),
+    from = "UTF-8",
+    to = "ASCII//TRANSLIT"
+  )
+}
+
+padronizar_zona <- function(x) {
+
+  x_norm <- normalizar_texto(x)
+
+  case_when(
+    x_norm == "fluvial"   ~ "Fluvial",
+    x_norm == "transicao" ~ "Transição",
+    x_norm == "lacustre"  ~ "Lacustre",
+    x_norm == "montante"  ~ "Montante",
+    TRUE                  ~ NA_character_
+  )
+}
+
+species_title_full <- function(x) {
+
+  x <- trimws(as.character(x))
+  x <- gsub("_", " ", x)
+  x <- gsub("\\s+", " ", x)
+
+  x
+}
+
+safe_filename <- function(x) {
+
+  x_safe <- iconv(
+    as.character(x),
+    from = "UTF-8",
+    to = "ASCII//TRANSLIT"
+  )
+
+  if (is.na(x_safe)) {
+    x_safe <- as.character(x)
+  }
+
+  x_safe <- gsub("[^A-Za-z0-9_ -]+", "", x_safe)
+  x_safe <- gsub(" +", "_", x_safe)
+  x_safe <- gsub("_+", "_", x_safe)
+  x_safe <- gsub("^_|_$", "", x_safe)
+
+  if (nchar(x_safe) == 0) {
+    x_safe <- "sem_nome"
+  }
+
+  x_safe
+}
+
+# Calcula a frequência e o percentual de cada estágio por mês
+make_month_stage_percent <- function(df, month_order) {
+
+  df %>%
+    mutate(
+      Mes = as.character(Mes),
+      Estagio = as.character(Estagio)
+    ) %>%
+    filter(
+      !is.na(Mes),
+      !is.na(Estagio),
+      Mes %in% month_order,
+      Estagio %in% stage_levels
+    ) %>%
+    count(Mes, Estagio, name = "n") %>%
+    complete(
+      Mes = month_order,
+      Estagio = stage_levels,
+      fill = list(n = 0)
+    ) %>%
+    mutate(
+      Mes = factor(Mes, levels = month_order),
+      Estagio = factor(Estagio, levels = stage_levels)
+    ) %>%
+    group_by(Mes) %>%
+    mutate(
+      total_mes = sum(n),
+      pct = if_else(
+        total_mes > 0,
+        100 * n / total_mes,
+        0
+      ),
+      pct = pmax(0, pmin(100, pct))
+    ) %>%
+    ungroup() %>%
+    arrange(Mes, Estagio)
+}
+
+plot_month_stage_stack <- function(tab,
+                                   titulo = "",
+                                   italic_title = FALSE,
+                                   title_hjust = 0.5) {
+
+  ggplot(
+    tab,
+    aes(
+      x = Mes,
+      y = pct,
+      fill = Estagio
+    )
+  ) +
+    geom_col(width = 0.8) +
+    labs(
+      title = titulo,
+      x = "Mês",
+      y = "Percentual de registros (%)",
+      fill = "Estágio"
+    ) +
+    scale_x_discrete(drop = FALSE) +
+    scale_fill_manual(
+      values = stage_colors,
+      limits = stage_levels,
+      breaks = stage_levels,
+      drop = FALSE
+    ) +
+    scale_y_continuous(
+      breaks = seq(0, 100, 10),
+      expand = c(0, 0)
+    ) +
+    coord_cartesian(ylim = c(0, 100)) +
+    theme_minimal(base_size = 14) +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+
+      axis.line.x = element_line(
+        color = "black",
+        linewidth = 1
+      ),
+      axis.line.y = element_line(
+        color = "black",
+        linewidth = 1
+      ),
+
+      axis.title.x = element_text(
+        size = axis_title_size,
+        face = "plain"
+      ),
+      axis.title.y = element_text(
+        size = axis_title_size,
+        face = "plain"
+      ),
+      axis.text.x = element_text(
+        size = axis_text_size,
+        angle = 0,
+        vjust = 0.5
+      ),
+      axis.text.y = element_text(
+        size = axis_text_size
+      ),
+
+      legend.title = element_text(
+        size = legend_title_size
+      ),
+      legend.text = element_text(
+        size = legend_text_size
+      ),
+
+      plot.title = element_text(
+        size = title_size,
+        face = ifelse(
+          italic_title,
+          "italic",
+          "plain"
+        ),
+        hjust = title_hjust
+      ),
+      plot.title.position = "plot",
+
+      plot.background = element_rect(
+        fill = "white",
+        color = NA
+      ),
+      panel.background = element_rect(
+        fill = "white",
+        color = NA
+      ),
+
+      plot.margin = margin(
+        t = 10,
+        r = 25,
+        b = 10,
+        l = 10
+      )
+    )
+}
+
+# ------------------------------------------------------------
+# Preparação do dataset
+# ------------------------------------------------------------
+
+rep_data <- BioTri26 %>%
+  mutate(
+    Zona = padronizar_zona(Zona),
+
+    Espécie = trimws(as.character(Espécie)),
+    especie_norm = normalizar_texto(Espécie),
+
+    Data = parse_data_biopesca(Data),
+
+    mes_num = as.integer(format(Data, "%m")),
+    ano_num = format(Data, "%Y"),
+
+    Mes = if_else(
+      !is.na(mes_num) & !is.na(ano_num),
+      paste0(mes_lbl[mes_num], " ", ano_num),
+      NA_character_
+    ),
+
+    Mes_data = as.Date(format(Data, "%Y-%m-01")),
+
+    Estagio = trimws(toupper(as.character(Estagio))),
+    Estagio = na_if(Estagio, "")
+  ) %>%
+  mutate(
+    Estagio = case_when(
+      Estagio == "IMT" ~ "IMT",
+      Estagio == "MAT" ~ "MAT",
+      Estagio == "RPD" ~ "RPD",
+      Estagio == "ESG" ~ "ESG",
+      Estagio == "REG" ~ "REG",
+      TRUE             ~ NA_character_
+    )
+  ) %>%
+  filter(
+    # Mantém somente as três zonas do reservatório
+    Zona %in% zone_levels,
+
+    # Exclui registros sem identificação de espécie
+    !is.na(Espécie),
+    Espécie != "",
+
+    # Exclui as linhas de esforço sem captura
+    especie_norm != "outros",
+
+    # Mantém apenas registros úteis para a reprodução
+    !is.na(Data),
+    !is.na(Mes),
+    !is.na(Estagio)
+  )
+
+if (nrow(rep_data) == 0) {
+  stop(
+    paste(
+      "Não há dados válidos de reprodução para",
+      "Fluvial, Transição e Lacustre."
+    )
+  )
+}
+
+# ------------------------------------------------------------
+# Ordem automática dos meses presentes no arquivo
+# ------------------------------------------------------------
+
+month_order <- rep_data %>%
+  distinct(Mes_data, Mes) %>%
+  arrange(Mes_data) %>%
+  pull(Mes) %>%
+  unique()
+
+rep_data <- rep_data %>%
+  mutate(
+    Mes = factor(Mes, levels = month_order),
+    Zona = factor(Zona, levels = zone_levels),
+    Estagio = factor(Estagio, levels = stage_levels)
+  )
+
+# Zonas efetivamente presentes
+zone_list <- zone_levels[
+  zone_levels %in% as.character(unique(rep_data$Zona))
+]
+
+# Espécies efetivamente presentes
+species_list <- sort(unique(as.character(rep_data$Espécie)))
+
+# ------------------------------------------------------------
+# Diagnóstico geral dos dados utilizados
+# ------------------------------------------------------------
+
+diagnostico <- data.frame(
+  registros_reprodutivos = nrow(rep_data),
+  numero_de_especies = length(species_list),
+  numero_de_zonas = length(zone_list),
+  primeiro_mes = month_order[1],
+  ultimo_mes = month_order[length(month_order)]
+)
+
+write.xlsx(
+  diagnostico,
+  file = file.path(
+    out_dir,
+    "Diagnostico_reprodutivos_reservatorio.xlsx"
+  ),
+  rowNames = FALSE
+)
+
+# ============================================================
+# 1) GERAL — TODO O RESERVATÓRIO
+# ============================================================
+
+tab_geral <- make_month_stage_percent(
+  rep_data,
+  month_order
+)
+
+check_geral <- tab_geral %>%
+  group_by(Mes) %>%
+  summarise(
+    soma_pct = sum(pct),
+    total = sum(n),
+    .groups = "drop"
+  )
+
+write.xlsx(
+  list(
+    Percentuais = tab_geral,
+    Checagem = check_geral
+  ),
+  file = file.path(
+    out_geral,
+    "Tabela_reprodutivos_por_mes_RESERVATORIO_GERAL.xlsx"
+  ),
+  rowNames = FALSE
+)
+
+p_geral <- plot_month_stage_stack(
+  tab_geral,
+  titulo = "Reservatório",
+  italic_title = FALSE,
+  title_hjust = 0.96
+)
+
+ggsave(
+  filename = file.path(
+    out_geral,
+    "Reprodutivos_por_mes_RESERVATORIO_GERAL.png"
+  ),
+  plot = p_geral,
+  width = 12,
+  height = 7,
+  dpi = 300,
+  bg = "white"
+)
+
+# ============================================================
+# 2) POR ZONA DO RESERVATÓRIO
+# ============================================================
+
+for (zona_atual in zone_list) {
+
+  df_zona <- rep_data %>%
+    filter(as.character(Zona) == zona_atual)
+
+  if (nrow(df_zona) == 0) {
+    next
+  }
+
+  tab_zona <- make_month_stage_percent(
+    df_zona,
+    month_order
+  )
+
+  check_zona <- tab_zona %>%
+    group_by(Mes) %>%
+    summarise(
+      soma_pct = sum(pct),
+      total = sum(n),
+      .groups = "drop"
+    )
+
+  zona_safe <- safe_filename(zona_atual)
+
+  write.xlsx(
+    list(
+      Percentuais = tab_zona,
+      Checagem = check_zona
+    ),
+    file = file.path(
+      out_zonas,
+      paste0(
+        "Tabela_reprodutivos_por_mes_ZONA_",
+        zona_safe,
+        ".xlsx"
+      )
+    ),
+    rowNames = FALSE
+  )
+
+  p_zona <- plot_month_stage_stack(
+    tab_zona,
+    titulo = zona_atual,
+    italic_title = FALSE,
+    title_hjust = 0.5
+  )
+
+  ggsave(
+    filename = file.path(
+      out_zonas,
+      paste0(
+        "Reprodutivos_por_mes_ZONA_",
+        zona_safe,
+        ".png"
+      )
+    ),
+    plot = p_zona,
+    width = 12,
+    height = 7,
+    dpi = 300,
+    bg = "white"
+  )
+}
+
+# ============================================================
+# 3) POR ESPÉCIE — TODO O RESERVATÓRIO
+# ============================================================
+
+for (sp in species_list) {
+
+  df_sp <- rep_data %>%
+    filter(Espécie == sp)
+
+  if (nrow(df_sp) == 0) {
+    next
+  }
+
+  tab_sp <- make_month_stage_percent(
+    df_sp,
+    month_order
+  )
+
+  check_sp <- tab_sp %>%
+    group_by(Mes) %>%
+    summarise(
+      soma_pct = sum(pct),
+      total = sum(n),
+      .groups = "drop"
+    )
+
+  sp_safe <- safe_filename(sp)
+
+  write.xlsx(
+    list(
+      Percentuais = tab_sp,
+      Checagem = check_sp
+    ),
+    file = file.path(
+      out_especies,
+      paste0(
+        "Tabela_reprodutivos_por_mes_RESERVATORIO_",
+        sp_safe,
+        ".xlsx"
+      )
+    ),
+    rowNames = FALSE
+  )
+
+  p_sp <- plot_month_stage_stack(
+    tab_sp,
+    titulo = species_title_full(sp),
+    italic_title = TRUE,
+    title_hjust = 0.5
+  )
+
+  ggsave(
+    filename = file.path(
+      out_especies,
+      paste0(
+        "Reprodutivos_por_mes_RESERVATORIO_",
+        sp_safe,
+        ".png"
+      )
+    ),
+    plot = p_sp,
+    width = 12,
+    height = 7,
+    dpi = 300,
+    bg = "white"
+  )
+}
+
+# ------------------------------------------------------------
+# Mensagem final
+# ------------------------------------------------------------
+
+cat("\nGráficos reprodutivos do reservatório finalizados.\n")
+cat("Montante foi excluído das análises.\n")
+cat("Linhas 'outros' foram excluídas das análises.\n\n")
+
+cat("Gráfico geral:\n")
+cat(out_geral, "\n\n")
+
+cat("Gráficos por zona:\n")
+cat(out_zonas, "\n\n")
+
+cat("Gráficos por espécie:\n")
+cat(out_especies, "\n")
