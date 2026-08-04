@@ -1,6 +1,6 @@
 # socioeconomico 2023 ####
 rm()
-setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2026")
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2026")
 library(readxl)
 library(vegan)
 library(tidyr)
@@ -137,7 +137,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Geral", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Geral", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 arrows(x0 = bar_mid, 
@@ -216,7 +216,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Fluvial", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Fluvial", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 arrows(x0 = bar_mid, 
@@ -277,7 +277,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Transição", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Transição", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 arrows(x0 = bar_mid, 
@@ -338,7 +338,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Lacustre", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Lacustre", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 arrows(x0 = bar_mid, 
@@ -416,7 +416,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Geral", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Geral", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 #arrows(x0 = bar_mid, 
@@ -488,7 +488,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
 
 
 # Add text "Geral" to the plot
-mtext("Fluvial", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Fluvial", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 ## Add error bars
 #arrows(x0 = bar_mid, 
@@ -549,7 +549,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Transição", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Transição", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 #arrows(x0 = bar_mid, 
@@ -610,7 +610,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
                    xlim = c(0.5, 20))  # Rotate X-axis labels vertically
 
 # Add text "Geral" to the plot
-mtext("Lacustre", side = 3, line = 0, outer = FALSE, cex = 1.25)
+mtext("Lacustre", side = 3, line = -0.8, outer = FALSE, cex = 1.25)
 
 # Add error bars
 #arrows(x0 = bar_mid, 
@@ -641,10 +641,15 @@ wide_data <- unique(wide_data)
 
 wide_data<-as.data.frame(wide_data)
 
-colnames(wide_data)<-c("Espécies","Lacustre","Transição","Fluvial")
+names(wide_data)[1] <- "Espécies"
 
 # Change column order
-wide_data <- wide_data[, c("Espécies", "Fluvial", "Transição", "Lacustre")]
+wide_data <- wide_data[, c(
+  "Espécies",
+  "Fluvial",
+  "Transição",
+  "Lacustre"
+)]
 
 # Remove rows where Espécies are equal to "TOTAL" or "<NA>"
 wide_data <- wide_data[!(wide_data$Espécies %in% c("TOTAL", NA)), ]
@@ -677,9 +682,18 @@ wide_data <- pivot_wider(data = especies,
 # Ensure each species appears only once
 wide_data <- unique(wide_data)
 
-wide_data<-as.data.frame(wide_data)
+names(wide_data)[1] <- "Espécies"
+names(wide_data)[2] <- "kg"
 
-colnames(wide_data)<-c("Espécies","kg","Lacustre","Transição","Fluvial")
+# Change column order
+wide_data <- wide_data[, c(
+  "Espécies",
+  "kg",
+  "Fluvial",
+  "Transição",
+  "Lacustre"
+)]
+
 
 # Change column order
 wide_data <- wide_data[, c("Espécies","kg","Lacustre","Transição","Fluvial")]
@@ -732,10 +746,10 @@ write.xlsx(wide_data, file = "espécies registradas no rendimento (kg).xlsx")
 ############## MONTANTE
 # socioeconomico Montante ####
 rm()
-setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 3 2025")
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2026")
 
 # Carrega dados
-rendimento <- data.frame(read_xlsx("Rendimento 2025 MONTANTE relatório 3.xlsx"))
+rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 1 MONTANTE.xlsx"))
 rendimento$DATA <-as.Date(rendimento$DATA, format = "%d/%m/%Y") # Data em (mmm aaaa)
 rendimento$Seq <- seq(nrow(rendimento))
 
@@ -899,7 +913,7 @@ bar_mid <- barplot(
   ylab = "",
   col = "gray",
   border = "black",
-  ylim = c(0, 0.02),
+  ylim = c(0, 0.04),
   space = 0.2,
   las = 2,
   width = 0.3,
