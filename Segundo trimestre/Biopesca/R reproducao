@@ -20,7 +20,7 @@ rm(list = ls())
 # ------------------------------------------------------------
 
 setwd(
-  "C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2026"
+  "C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2 2026"
 )
 
 library(readxl)
@@ -29,7 +29,7 @@ library(dplyr)
 library(ggplot2)
 library(openxlsx)
 
-arquivo <- "Biopesca_2026_ TRIMESTRAL_-M-A-M.xlsx"
+arquivo <- "Biopesca_2026_ Trimestral2_JJA.xlsx"
 
 BioTri26 <- data.frame(
   read_xlsx(arquivo, sheet = "Biometria"),
@@ -97,50 +97,50 @@ legend_text_size  <- 15
 # ------------------------------------------------------------
 
 parse_data_biopesca <- function(x) {
-
+  
   if (inherits(x, "Date")) {
     return(x)
   }
-
+  
   if (inherits(x, "POSIXct") || inherits(x, "POSIXt")) {
     return(as.Date(x))
   }
-
+  
   if (is.numeric(x)) {
     return(as.Date(x, origin = "1899-12-30"))
   }
-
+  
   x <- trimws(as.character(x))
   x[x == ""] <- NA
-
+  
   # Tenta primeiro o formato reconhecido automaticamente
   data_convertida <- suppressWarnings(as.Date(x))
-
+  
   # Tenta mês/dia/ano
   idx <- is.na(data_convertida) & !is.na(x)
-
+  
   if (any(idx)) {
     data_convertida[idx] <- suppressWarnings(
       as.Date(x[idx], format = "%m/%d/%Y")
     )
   }
-
+  
   # Tenta dia/mês/ano
   idx <- is.na(data_convertida) & !is.na(x)
-
+  
   if (any(idx)) {
     data_convertida[idx] <- suppressWarnings(
       as.Date(x[idx], format = "%d/%m/%Y")
     )
   }
-
+  
   data_convertida
 }
 
 normalizar_texto <- function(x) {
-
+  
   x <- trimws(as.character(x))
-
+  
   iconv(
     tolower(x),
     from = "UTF-8",
@@ -149,9 +149,9 @@ normalizar_texto <- function(x) {
 }
 
 padronizar_zona <- function(x) {
-
+  
   x_norm <- normalizar_texto(x)
-
+  
   case_when(
     x_norm == "fluvial"   ~ "Fluvial",
     x_norm == "transicao" ~ "Transição",
@@ -162,41 +162,41 @@ padronizar_zona <- function(x) {
 }
 
 species_title_full <- function(x) {
-
+  
   x <- trimws(as.character(x))
   x <- gsub("_", " ", x)
   x <- gsub("\\s+", " ", x)
-
+  
   x
 }
 
 safe_filename <- function(x) {
-
+  
   x_safe <- iconv(
     as.character(x),
     from = "UTF-8",
     to = "ASCII//TRANSLIT"
   )
-
+  
   if (is.na(x_safe)) {
     x_safe <- as.character(x)
   }
-
+  
   x_safe <- gsub("[^A-Za-z0-9_ -]+", "", x_safe)
   x_safe <- gsub(" +", "_", x_safe)
   x_safe <- gsub("_+", "_", x_safe)
   x_safe <- gsub("^_|_$", "", x_safe)
-
+  
   if (nchar(x_safe) == 0) {
     x_safe <- "sem_nome"
   }
-
+  
   x_safe
 }
 
 # Calcula a frequência e o percentual de cada estágio por mês
 make_month_stage_percent <- function(df, month_order) {
-
+  
   df %>%
     mutate(
       Mes = as.character(Mes),
@@ -236,7 +236,7 @@ plot_month_stage_stack <- function(tab,
                                    titulo = "",
                                    italic_title = FALSE,
                                    title_hjust = 0.5) {
-
+  
   ggplot(
     tab,
     aes(
@@ -268,7 +268,7 @@ plot_month_stage_stack <- function(tab,
     theme(
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
-
+      
       axis.line.x = element_line(
         color = "black",
         linewidth = 1
@@ -277,7 +277,7 @@ plot_month_stage_stack <- function(tab,
         color = "black",
         linewidth = 1
       ),
-
+      
       axis.title.x = element_text(
         size = axis_title_size,
         face = "plain"
@@ -294,14 +294,14 @@ plot_month_stage_stack <- function(tab,
       axis.text.y = element_text(
         size = axis_text_size
       ),
-
+      
       legend.title = element_text(
         size = legend_title_size
       ),
       legend.text = element_text(
         size = legend_text_size
       ),
-
+      
       plot.title = element_text(
         size = title_size,
         face = ifelse(
@@ -312,7 +312,7 @@ plot_month_stage_stack <- function(tab,
         hjust = title_hjust
       ),
       plot.title.position = "plot",
-
+      
       plot.background = element_rect(
         fill = "white",
         color = NA
@@ -321,7 +321,7 @@ plot_month_stage_stack <- function(tab,
         fill = "white",
         color = NA
       ),
-
+      
       plot.margin = margin(
         t = 10,
         r = 25,
@@ -338,23 +338,23 @@ plot_month_stage_stack <- function(tab,
 rep_data <- BioTri26 %>%
   mutate(
     Zona = padronizar_zona(Zona),
-
+    
     Espécie = trimws(as.character(Espécie)),
     especie_norm = normalizar_texto(Espécie),
-
+    
     Data = parse_data_biopesca(Data),
-
+    
     mes_num = as.integer(format(Data, "%m")),
     ano_num = format(Data, "%Y"),
-
+    
     Mes = if_else(
       !is.na(mes_num) & !is.na(ano_num),
       paste0(mes_lbl[mes_num], " ", ano_num),
       NA_character_
     ),
-
+    
     Mes_data = as.Date(format(Data, "%Y-%m-01")),
-
+    
     Estagio = trimws(toupper(as.character(Estagio))),
     Estagio = na_if(Estagio, "")
   ) %>%
@@ -371,14 +371,14 @@ rep_data <- BioTri26 %>%
   filter(
     # Mantém somente as três zonas do reservatório
     Zona %in% zone_levels,
-
+    
     # Exclui registros sem identificação de espécie
     !is.na(Espécie),
     Espécie != "",
-
+    
     # Exclui as linhas de esforço sem captura
     especie_norm != "outros",
-
+    
     # Mantém apenas registros úteis para a reprodução
     !is.na(Data),
     !is.na(Mes),
@@ -493,19 +493,19 @@ ggsave(
 # ============================================================
 
 for (zona_atual in zone_list) {
-
+  
   df_zona <- rep_data %>%
     filter(as.character(Zona) == zona_atual)
-
+  
   if (nrow(df_zona) == 0) {
     next
   }
-
+  
   tab_zona <- make_month_stage_percent(
     df_zona,
     month_order
   )
-
+  
   check_zona <- tab_zona %>%
     group_by(Mes) %>%
     summarise(
@@ -513,9 +513,9 @@ for (zona_atual in zone_list) {
       total = sum(n),
       .groups = "drop"
     )
-
+  
   zona_safe <- safe_filename(zona_atual)
-
+  
   write.xlsx(
     list(
       Percentuais = tab_zona,
@@ -531,14 +531,14 @@ for (zona_atual in zone_list) {
     ),
     rowNames = FALSE
   )
-
+  
   p_zona <- plot_month_stage_stack(
     tab_zona,
     titulo = zona_atual,
     italic_title = FALSE,
     title_hjust = 0.5
   )
-
+  
   ggsave(
     filename = file.path(
       out_zonas,
@@ -561,19 +561,19 @@ for (zona_atual in zone_list) {
 # ============================================================
 
 for (sp in species_list) {
-
+  
   df_sp <- rep_data %>%
     filter(Espécie == sp)
-
+  
   if (nrow(df_sp) == 0) {
     next
   }
-
+  
   tab_sp <- make_month_stage_percent(
     df_sp,
     month_order
   )
-
+  
   check_sp <- tab_sp %>%
     group_by(Mes) %>%
     summarise(
@@ -581,9 +581,9 @@ for (sp in species_list) {
       total = sum(n),
       .groups = "drop"
     )
-
+  
   sp_safe <- safe_filename(sp)
-
+  
   write.xlsx(
     list(
       Percentuais = tab_sp,
@@ -599,14 +599,14 @@ for (sp in species_list) {
     ),
     rowNames = FALSE
   )
-
+  
   p_sp <- plot_month_stage_stack(
     tab_sp,
     titulo = species_title_full(sp),
     italic_title = TRUE,
     title_hjust = 0.5
   )
-
+  
   ggsave(
     filename = file.path(
       out_especies,
