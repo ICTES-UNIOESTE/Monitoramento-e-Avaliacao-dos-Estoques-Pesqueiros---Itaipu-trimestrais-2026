@@ -1,0 +1,791 @@
+# Biopesca - Preços trimestral 2026 ####
+# Adaptado para a nova planilha de 2026, aba "Preços".
+# Inclui padronização de nomes populares em Estoque antes dos cálculos.
+#
+# Para os preços de peixe processado:
+# - Cascudo e Armado utilizam o preço de Porquinho;
+# - todos os demais estoques utilizam o preço de Filé.
+
+rm(list = ls())
+
+setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R biopesca/Trimestral 2 2026")
+
+library(readxl)
+library(dplyr)
+library(openxlsx)
+
+################################################################################
+# Leitura da aba de preços ####
+
+Precos <- data.frame(
+  read_xlsx(
+    "Biopesca_2026_ Trimestral2_JJA.xlsx",
+    sheet = "Preços"
+  ),
+  check.names = FALSE
+)
+
+names(Precos) <- trimws(names(Precos))
+
+################################################################################
+# Funções auxiliares ####
+
+limpa_chave <- function(x){
+  
+  x <- as.character(x)
+  x <- trimws(x)
+  x <- iconv(x, from = "", to = "ASCII//TRANSLIT")
+  x <- tolower(x)
+  x <- gsub("[^a-z0-9]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  trimws(x)
+}
+
+pega_coluna <- function(dados, candidatos){
+  
+  nomes <- names(dados)
+  
+  chave_nomes <- limpa_chave(nomes)
+  chave_candidatos <- limpa_chave(candidatos)
+  
+  # Primeiro procura correspondência exata
+  for(padrao in chave_candidatos){
+    
+    ind <- which(chave_nomes == padrao)
+    
+    if(length(ind) > 0){
+      return(nomes[ind[1]])
+    }
+  }
+  
+  # Depois procura correspondência parcial
+  for(padrao in chave_candidatos){
+    
+    ind <- grep(padrao, chave_nomes)
+    
+    if(length(ind) > 0){
+      return(nomes[ind[1]])
+    }
+  }
+  
+  stop(
+    paste(
+      "Coluna não encontrada. Procurei por:",
+      paste(candidatos, collapse = ", ")
+    )
+  )
+}
+
+################################################################################
+# Padronização dos nomes populares dos estoques ####
+
+dicionario_estoque <- c(
+  "apaiari" = "Apaiari",
+  "armado" = "Armado",
+  "bagre africano" = "Bagre Africano",
+  "bananinha" = "Bananinha",
+  "barbado" = "Barbado",
+  "bocudo" = "Bocudo",
+  "cangati" = "Cangati",
+  "cara" = "Cará",
+  "cascudo" = "Cascudo",
+  "cascudo rabeta" = "Cascudo",
+  "corvina" = "Corvina",
+  "curimba" = "Curimba",
+  "dourado cachorro" = "Dourado Cachorro",
+  "jau" = "Jaú",
+  "jeju" = "Jeju",
+  "joaninha" = "Joaninha",
+  "jurupensen" = "Jurupensem",
+  "jurupensem" = "Jurupensem",
+  "jurupoca" = "Jurupoca",
+  "linguado" = "Linguado",
+  "luz baixa" = "Luz Baixa",
+  "mandi" = "Mandi",
+  "oscar" = "Apaiari",
+  "pacu" = "Pacu",
+  "palometa" = "Palometa",
+  "perna de moca" = "Perna de Moça",
+  "piapara" = "Piapara",
+  "piau" = "Piau",
+  "piaucu" = "Piauçu",
+  "piavucu" = "Piauçu",
+  "pintado" = "Pintado",
+  "piracanjuba" = "Piracanjuba",
+  "piranha" = "Piranha",
+  "raia" = "Raia",
+  "saicanga" = "Saicanga",
+  "tilapia" = "Tilápia",
+  "traira" = "Traíra",
+  "tucunare" = "Tucunaré"
+)
+
+padroniza_estoque <- function(x){
+  
+  original <- as.character(x)
+  original <- trimws(original)
+  
+  chave <- limpa_chave(original)
+  
+  saida <- original
+  
+  ind <- chave %in% names(dicionario_estoque)
+  
+  saida[ind] <- dicionario_estoque[chave[ind]]
+  
+  saida
+}
+
+################################################################################
+# Padronização das colunas principais ####
+
+col_zona <- pega_coluna(
+  Precos,
+  c("Zona")
+)
+
+col_estoque <- pega_coluna(
+  Precos,
+  c("Estoque")
+)
+
+Precos$Zona <- Precos[[col_zona]]
+
+Precos$Estoque_original <- Precos[[col_estoque]]
+
+Precos$Estoque <- padroniza_estoque(
+  Precos$Estoque_original
+)
+
+################################################################################
+# Conferência da padronização dos nomes populares ####
+
+conferencia_nomes <- unique(
+  data.frame(
+    Estoque_original = Precos$Estoque_original,
+    Estoque_padronizado = Precos$Estoque
+  )
+)
+
+conferencia_nomes <- conferencia_nomes[
+  order(
+    conferencia_nomes$Estoque_padronizado,
+    conferencia_nomes$Estoque_original
+  ),
+]
+
+write.xlsx(
+  conferencia_nomes,
+  file = "Conferencia padronizacao nomes estoque.xlsx",
+  rowNames = FALSE
+)
+
+################################################################################
+# Identificação das colunas de preço ####
+
+# ---------------------------------------------------------------------------
+# Inteiro - Particular
+# ---------------------------------------------------------------------------
+
+col_inteiro_particular <- pega_coluna(
+  Precos,
+  c(
+    "Inteiro Particular",
+    "Inteiro (Particular)"
+  )
+)
+
+# ---------------------------------------------------------------------------
+# Filé - Particular
+# Será usado para os estoques processados, exceto Cascudo e Armado
+# ---------------------------------------------------------------------------
+
+col_file_particular <- pega_coluna(
+  Precos,
+  c(
+    "Filé Particular",
+    "File Particular",
+    "Filé (Particular)",
+    "File (Particular)"
+  )
+)
+
+# ---------------------------------------------------------------------------
+# Porquinho - Particular
+# Será usado somente para Cascudo e Armado
+# ---------------------------------------------------------------------------
+
+col_porquinho_particular <- pega_coluna(
+  Precos,
+  c(
+    "Porquinho Particular",
+    "Porquinho (Particular)"
+  )
+)
+
+# ---------------------------------------------------------------------------
+# Inteiro - Peixeiro
+# ---------------------------------------------------------------------------
+
+col_inteiro_peixeiro <- pega_coluna(
+  Precos,
+  c(
+    "Inteiro Peixeiro",
+    "Inteiro (Peixeiro)"
+  )
+)
+
+# ---------------------------------------------------------------------------
+# Filé - Peixeiro
+# Será usado para os estoques processados, exceto Cascudo e Armado
+# ---------------------------------------------------------------------------
+
+col_file_peixeiro <- pega_coluna(
+  Precos,
+  c(
+    "Filé Peixeiro",
+    "File Peixeiro",
+    "Filé (Peixeiro)",
+    "File (Peixeiro)"
+  )
+)
+
+# ---------------------------------------------------------------------------
+# Porquinho - Peixeiro
+# Será usado somente para Cascudo e Armado
+# ---------------------------------------------------------------------------
+
+col_porquinho_peixeiro <- pega_coluna(
+  Precos,
+  c(
+    "Porquinho Peixeiro",
+    "Porquinho (Peixeiro)"
+  )
+)
+
+################################################################################
+# Conferência das colunas encontradas ####
+
+cat("\nColunas de preço identificadas:\n\n")
+
+cat(
+  "Inteiro Particular:   ",
+  col_inteiro_particular,
+  "\n"
+)
+
+cat(
+  "Filé Particular:      ",
+  col_file_particular,
+  "\n"
+)
+
+cat(
+  "Porquinho Particular: ",
+  col_porquinho_particular,
+  "\n"
+)
+
+cat(
+  "Inteiro Peixeiro:     ",
+  col_inteiro_peixeiro,
+  "\n"
+)
+
+cat(
+  "Filé Peixeiro:        ",
+  col_file_peixeiro,
+  "\n"
+)
+
+cat(
+  "Porquinho Peixeiro:   ",
+  col_porquinho_peixeiro,
+  "\n\n"
+)
+
+################################################################################
+# Função para gerar tabelas de preço ####
+#
+# Lógica:
+#
+# 1) Recebe uma coluna principal de preço.
+#
+# 2) Opcionalmente recebe:
+#    - uma coluna de preço alternativo;
+#    - uma lista de estoques que devem usar esse preço alternativo.
+#
+# 3) Para as tabelas de peixe processado:
+#
+#    Cascudo -> usa Porquinho
+#    Armado  -> usa Porquinho
+#
+#    Todos os demais estoques -> usam Filé
+#
+################################################################################
+
+gera_tabelas_preco <- function(
+    dados,
+    coluna_preco,
+    arquivo_geral,
+    arquivo_zona,
+    coluna_preco_alternativo = NULL,
+    estoques_alternativos = NULL
+){
+  
+  Preco <- dados
+  
+  ###########################################################################
+  # Preço principal
+  ###########################################################################
+  
+  Preco$Preco_valor <- suppressWarnings(
+    as.numeric(
+      Preco[[coluna_preco]]
+    )
+  )
+  
+  ###########################################################################
+  # Substituição por preço alternativo
+  ###########################################################################
+  
+  if(
+    !is.null(coluna_preco_alternativo) &&
+    !is.null(estoques_alternativos)
+  ){
+    
+    Preco$Preco_alternativo <- suppressWarnings(
+      as.numeric(
+        Preco[[coluna_preco_alternativo]]
+      )
+    )
+    
+    usar_alternativo <-
+      Preco$Estoque %in% estoques_alternativos
+    
+    # Cascudo e Armado usam obrigatoriamente Porquinho
+    Preco$Preco_valor[usar_alternativo] <-
+      Preco$Preco_alternativo[usar_alternativo]
+  }
+  
+  ###########################################################################
+  # Filtragem dos dados válidos
+  ###########################################################################
+  
+  Preco <- Preco[
+    Preco$Preco_valor > 0 &
+      !is.na(Preco$Preco_valor) &
+      !is.na(Preco$Estoque) &
+      trimws(Preco$Estoque) != "",
+  ]
+  
+  ###########################################################################
+  # Seleção das colunas
+  ###########################################################################
+  
+  Preco <- Preco[
+    ,
+    c(
+      "Zona",
+      "Estoque",
+      "Preco_valor"
+    )
+  ]
+  
+  colnames(Preco) <- c(
+    "Zona",
+    "Espécie",
+    "Preço"
+  )
+  
+  ###########################################################################
+  # Ordem das zonas
+  ###########################################################################
+  
+  Preco$Zona <- factor(
+    Preco$Zona,
+    levels = c(
+      "Fluvial",
+      "Transição",
+      "Lacustre",
+      "Montante"
+    )
+  )
+  
+  ############################################################################
+  # Tabela geral por estoque
+  ############################################################################
+  
+  overall_summary <- aggregate(
+    Preço ~ Espécie,
+    data = Preco,
+    FUN = function(x){
+      
+      c(
+        mean = mean(
+          x,
+          na.rm = TRUE
+        ),
+        sd = sd(
+          x,
+          na.rm = TRUE
+        )
+      )
+      
+    }
+  )
+  
+  overall_summary$Zona <- "Geral"
+  
+  overall_summary <- as.data.frame(
+    overall_summary
+  )
+  
+  colnames(overall_summary) <- c(
+    "Espécies",
+    "Preço",
+    "Zona"
+  )
+  
+  overall_summary$Preço_mean <-
+    overall_summary$Preço[, 1]
+  
+  overall_summary$Preço_sd <-
+    overall_summary$Preço[, 2]
+  
+  overall_summary <-
+    overall_summary[, -2]
+  
+  overall_summary <- overall_summary %>%
+    arrange(Espécies)
+  
+  ###########################################################################
+  # Salvar tabela geral
+  ###########################################################################
+  
+  write.xlsx(
+    overall_summary,
+    file = arquivo_geral,
+    rowNames = FALSE
+  )
+  
+  ############################################################################
+  # Tabela por zona e estoque
+  ############################################################################
+  
+  zona_summary <- aggregate(
+    Preço ~ Espécie + Zona,
+    data = Preco,
+    FUN = function(x){
+      
+      c(
+        mean = mean(
+          x,
+          na.rm = TRUE
+        ),
+        sd = sd(
+          x,
+          na.rm = TRUE
+        )
+      )
+      
+    }
+  )
+  
+  zona_summary <- zona_summary %>%
+    arrange(Espécie)
+  
+  ###########################################################################
+  # Completar todas as combinações de estoque e zona
+  ###########################################################################
+  
+  complete_set <- expand.grid(
+    Espécie = unique(
+      zona_summary$Espécie
+    ),
+    Zona = c(
+      "Fluvial",
+      "Transição",
+      "Lacustre",
+      "Montante"
+    )
+  )
+  
+  zona_summary_complete <- merge(
+    zona_summary,
+    complete_set,
+    by = c(
+      "Espécie",
+      "Zona"
+    ),
+    all = TRUE
+  )
+  
+  ###########################################################################
+  # Reordenar zonas
+  ###########################################################################
+  
+  zona_summary_complete$Zona <- factor(
+    zona_summary_complete$Zona,
+    levels = c(
+      "Fluvial",
+      "Transição",
+      "Lacustre",
+      "Montante"
+    )
+  )
+  
+  zona_summary_complete <- zona_summary_complete %>%
+    arrange(
+      Espécie,
+      Zona
+    )
+  
+  ###########################################################################
+  # Organizar colunas finais
+  ###########################################################################
+  
+  colnames(zona_summary_complete) <- c(
+    "Espécies",
+    "Zona",
+    "Preço"
+  )
+  
+  zona_summary_complete$Preço_mean <-
+    zona_summary_complete$Preço[, 1]
+  
+  zona_summary_complete$Preço_sd <-
+    zona_summary_complete$Preço[, 2]
+  
+  zona_summary_complete <-
+    zona_summary_complete[, -3]
+  
+  ###########################################################################
+  # Salvar tabela por zona
+  ###########################################################################
+  
+  write.xlsx(
+    zona_summary_complete,
+    file = arquivo_zona,
+    rowNames = FALSE
+  )
+  
+  ###########################################################################
+  # Retorno
+  ###########################################################################
+  
+  return(
+    list(
+      geral = overall_summary,
+      zona = zona_summary_complete,
+      dados_filtrados = Preco
+    )
+  )
+}
+
+################################################################################
+# Geração das tabelas principais de preço ####
+
+################################################################################
+# 1. Peixe inteiro - Particular ####
+################################################################################
+
+preco_inteiro_particular <- gera_tabelas_preco(
+  
+  dados = Precos,
+  
+  coluna_preco =
+    col_inteiro_particular,
+  
+  arquivo_geral =
+    "Preço geral peixe inteiro particular.xlsx",
+  
+  arquivo_zona =
+    "Preço por zona peixe inteiro particular.xlsx"
+)
+
+################################################################################
+# 2. Peixe processado - Particular ####
+#
+# Cascudo e Armado usam Porquinho.
+# Todos os demais estoques usam Filé.
+################################################################################
+
+preco_processado_particular <- gera_tabelas_preco(
+  
+  dados = Precos,
+  
+  coluna_preco =
+    col_file_particular,
+  
+  coluna_preco_alternativo =
+    col_porquinho_particular,
+  
+  estoques_alternativos = c(
+    "Cascudo",
+    "Armado"
+  ),
+  
+  arquivo_geral =
+    "Preço geral peixe processado particular.xlsx",
+  
+  arquivo_zona =
+    "Preço por zona peixe processado particular.xlsx"
+)
+
+################################################################################
+# 3. Peixe inteiro - Peixeiro ####
+################################################################################
+
+preco_inteiro_peixeiro <- gera_tabelas_preco(
+  
+  dados = Precos,
+  
+  coluna_preco =
+    col_inteiro_peixeiro,
+  
+  arquivo_geral =
+    "Preço geral peixe inteiro peixeiro.xlsx",
+  
+  arquivo_zona =
+    "Preço por zona peixe inteiro peixeiro.xlsx"
+)
+
+################################################################################
+# 4. Peixe processado - Peixeiro ####
+#
+# Cascudo e Armado usam Porquinho.
+# Todos os demais estoques usam Filé.
+################################################################################
+
+preco_processado_peixeiro <- gera_tabelas_preco(
+  
+  dados = Precos,
+  
+  coluna_preco =
+    col_file_peixeiro,
+  
+  coluna_preco_alternativo =
+    col_porquinho_peixeiro,
+  
+  estoques_alternativos = c(
+    "Cascudo",
+    "Armado"
+  ),
+  
+  arquivo_geral =
+    "Preço geral peixe processado peixeiro.xlsx",
+  
+  arquivo_zona =
+    "Preço por zona peixe processado peixeiro.xlsx"
+)
+
+################################################################################
+# Conferência específica de Cascudo e Armado ####
+################################################################################
+
+cat("\n============================================================\n")
+cat("CONFERÊNCIA: Cascudo e Armado\n")
+cat("============================================================\n\n")
+
+conferencia_processado <- Precos %>%
+  filter(
+    Estoque %in% c(
+      "Cascudo",
+      "Armado"
+    )
+  ) %>%
+  select(
+    Zona,
+    Estoque,
+    all_of(col_file_particular),
+    all_of(col_porquinho_particular),
+    all_of(col_file_peixeiro),
+    all_of(col_porquinho_peixeiro)
+  )
+
+print(
+  conferencia_processado
+)
+
+write.xlsx(
+  conferencia_processado,
+  file = "Conferencia preços processados Cascudo e Armado.xlsx",
+  rowNames = FALSE
+)
+
+################################################################################
+# Conferências rápidas ####
+################################################################################
+
+cat("\nNomes populares originais e padronizados foram salvos em:\n")
+
+cat(
+  "Conferencia padronizacao nomes estoque.xlsx\n"
+)
+
+cat("\nEstoques padronizados encontrados:\n")
+
+print(
+  sort(
+    unique(
+      Precos$Estoque
+    )
+  )
+)
+
+cat("\nRegra utilizada nas tabelas de peixe processado:\n")
+
+cat(
+  "- Cascudo = preço de Porquinho\n"
+)
+
+cat(
+  "- Armado = preço de Porquinho\n"
+)
+
+cat(
+  "- Demais estoques = preço de Filé\n"
+)
+
+cat("\nArquivos gerados:\n")
+
+cat(
+  "- Preço geral peixe inteiro particular.xlsx\n"
+)
+
+cat(
+  "- Preço por zona peixe inteiro particular.xlsx\n"
+)
+
+cat(
+  "- Preço geral peixe processado particular.xlsx\n"
+)
+
+cat(
+  "- Preço por zona peixe processado particular.xlsx\n"
+)
+
+cat(
+  "- Preço geral peixe inteiro peixeiro.xlsx\n"
+)
+
+cat(
+  "- Preço por zona peixe inteiro peixeiro.xlsx\n"
+)
+
+cat(
+  "- Preço geral peixe processado peixeiro.xlsx\n"
+)
+
+cat(
+  "- Preço por zona peixe processado peixeiro.xlsx\n"
+)
+
+cat("\nArquivo adicional de conferência:\n")
+
+cat(
+  "- Conferencia preços processados Cascudo e Armado.xlsx\n"
+)
+
+cat("\nArquivos de preço gerados com sucesso.\n")
