@@ -1,6 +1,6 @@
 # socioeconomico 2023 ####
 rm()
-setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2026")
+setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2 2026")
 library(readxl)
 library(vegan)
 library(tidyr)
@@ -9,7 +9,7 @@ library(ggplot2)
 library(openxlsx)
 library(ggrepel)
 library(lubridate)
-rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 1 RESERVATORIO.xlsx"))
+rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 2 J-J-A RESERVATÓRIO 2.xlsx"))
 rendimento$DATA <-as.Date(rendimento$DATA, format = "%d/%m/%Y") # Data em (mmm aaaa)
 rendimento$Seq <- seq(nrow(rendimento))
 
@@ -130,7 +130,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    ylab = "CPUE (kg/pescador/dia)",
                    col = "#ffff00",  # Bar color
                    border = "black",  # Bar border color
-                   ylim = c(0, max(upper_bound)),  # Set y-axis limits
+                   ylim = c(0, 10),  # Set y-axis limits
                    space = 0.2,  # Adjust space between bars
                    las = 2,
                    width = 0.3,
@@ -270,7 +270,7 @@ bar_mid <- barplot(height = mean_data$CPUE.Espécie..kg.pescador.dia.,
                    ylab = "CPUE (kg/pescador/dia)",
                    col = "#da2420",  # Bar color
                    border = "black",  # Bar border color
-                   ylim = c(0, max(upper_bound)),  # Set y-axis limits
+                   ylim = c(0, 8),  # Set y-axis limits
                    space = 0.2,  # Adjust space between bars
                    las = 2,
                    width = 0.3,
@@ -479,7 +479,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
                    ylab = "CPUE (kg/pescador/dia)",
                    col = "#045e9a",  # Bar color
                    border = "black",  # Bar border color
-                   ylim = c(0, 0.065),  # Set y-axis limits
+                   ylim = c(0, 0.02),  # Set y-axis limits
                    space = 0.2,  # Adjust space between bars
                    las = 2,
                    width = 0.3,
@@ -603,7 +603,7 @@ bar_mid <- barplot(height = mean_data$CPUE..kg.m..rede.,
                    ylab = "CPUE (kg/pescador/dia)",
                    col = "#009241",  # Bar color
                    border = "black",  # Bar border color
-                   ylim = c(0, max(mean_data$CPUE..kg.m..rede.)),  # Set y-axis limits
+                   ylim = c(0, 0.0030),  # Set y-axis limits
                    space = 0.2,  # Adjust space between bars
                    las = 2,
                    width = 0.3,
@@ -746,10 +746,10 @@ write.xlsx(wide_data, file = "espécies registradas no rendimento (kg).xlsx")
 ############## MONTANTE
 # socioeconomico Montante ####
 rm()
-setwd("C:/Users/lg_ri/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2026")
+setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2 2026")
 
 # Carrega dados
-rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 1 MONTANTE.xlsx"))
+rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 2 J-J-A MONTANTE.xlsx"))
 rendimento$DATA <-as.Date(rendimento$DATA, format = "%d/%m/%Y") # Data em (mmm aaaa)
 rendimento$Seq <- seq(nrow(rendimento))
 
