@@ -1,4 +1,4 @@
-# socioeconomico 2023 ####
+# rendimento ####
 rm()
 setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2 2026")
 library(readxl)
@@ -9,7 +9,7 @@ library(ggplot2)
 library(openxlsx)
 library(ggrepel)
 library(lubridate)
-rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 2 J-J-A RESERVATÓRIO 2.xlsx"))
+rendimento <- data.frame(read_xlsx("Rendimento 2026 Trimestral 2 J-J-A RESERVATÓRIO.xlsx"))
 rendimento$DATA <-as.Date(rendimento$DATA, format = "%d/%m/%Y") # Data em (mmm aaaa)
 rendimento$Seq <- seq(nrow(rendimento))
 
