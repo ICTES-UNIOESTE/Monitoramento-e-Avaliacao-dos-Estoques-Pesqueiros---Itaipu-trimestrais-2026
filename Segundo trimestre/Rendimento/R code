@@ -1,4 +1,4 @@
-# rendimento ####
+# socioeconomico 2023 ####
 rm()
 setwd("C:/Users/Administrador/Dropbox/Postdoc/UNIOESTE/Relatórios Itaipu/R rendimento/Trimestral 2 2026")
 library(readxl)
